@@ -31,6 +31,7 @@ class Settings:
     transcription_chunk_seconds: int = 90
     transcription_overlap_seconds: float = 1.5
     restricted_video_links: bool = False
+    reading_products: bool = False
 
     @property
     def db_path(self) -> Path:

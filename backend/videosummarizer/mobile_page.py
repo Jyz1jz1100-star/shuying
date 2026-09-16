@@ -10,9 +10,9 @@ HTML = r'''<!doctype html>
 <body><main><header><div class="brand">述影<small>视频、录音，随手转文字</small></div><button id="logout" class="quiet" hidden>退出</button></header>
 <div id="message" role="status" aria-live="polite" hidden></div>
 <section id="login" class="panel"><h1>在手机上接着用</h1><p class="muted">输入访问密钥，连接你的述影服务。</p><form id="login-form" class="stack"><label for="key">访问密钥</label><input id="key" type="password" placeholder="粘贴访问密钥" autocomplete="off" autocapitalize="none" spellcheck="false" required><button id="connect" type="submit">连接述影</button></form><p class="muted">密钥只在当前标签页中保留，退出后清除。</p><details><summary>密钥在哪里？</summary><p>向服务管理者获取。如果服务装在自己的电脑上，在安装目录的 client-key.json 中复制 api_key 对应的值；不要复制整个文件。</p></details></section>
-<div id="app" hidden><section class="panel stack"><div><h1>把声音变成文字</h1><p class="muted" id="limits">选择手机里的视频、录音或字幕。</p></div><label for="processing-mode">生成内容</label><select id="processing-mode"><option value="lecture">文字＋AI 总结＋思维导图</option><option value="transcript">仅转文字</option></select><p class="muted" id="notes-info">AI 总结完成后自动生成结构导图，无需额外调用模型。</p><form id="link-form" class="stack"><label for="video-link">粘贴视频链接</label><textarea id="video-link" placeholder="B站 / YouTube 链接，也可以粘贴整段分享文字" maxlength="4096" required></textarea><button id="import-link" type="submit">开始处理链接</button><span class="muted">支持公开视频和 B站短链接，不支持登录、付费内容或合集。</span></form><p class="muted">或者，上传手机里的文件</p><label class="pick"><span>＋ 选择视频、录音或字幕</span><input id="file" type="file" accept=".mp4,.mkv,.webm,.mov,.mp3,.wav,.m4a,.flac,.srt,.vtt" aria-label="选择视频、录音或字幕"></label><p id="filename" class="muted">尚未选择文件</p><button id="upload" disabled>开始处理文件</button><div id="upload-progress" hidden><progress id="upload-bar" max="100" value="0" aria-label="上传进度"></progress><p id="upload-state"></p></div></section>
+<div id="app" hidden><section class="panel stack"><div><h1>把声音变成文字</h1><p class="muted" id="limits">选择手机里的视频、录音或字幕。</p></div><label for="processing-mode">生成内容</label><select id="processing-mode"><option value="lecture">文字＋AI 总结＋思维导图</option><option value="transcript">仅转文字</option></select><p class="muted" id="notes-info">总结提炼重点，导图梳理概念关系；两者分别由 AI 生成，共用一次转写。</p><form id="link-form" class="stack"><label for="video-link">粘贴视频链接</label><textarea id="video-link" placeholder="B站 / YouTube 链接，也可以粘贴整段分享文字" maxlength="4096" required></textarea><button id="import-link" type="submit">开始处理链接</button><span class="muted">支持公开视频和 B站短链接，不支持登录、付费内容或合集。</span></form><p class="muted">或者，上传手机里的文件</p><label class="pick"><span>＋ 选择视频、录音或字幕</span><input id="file" type="file" accept=".mp4,.mkv,.webm,.mov,.mp3,.wav,.m4a,.flac,.srt,.vtt" aria-label="选择视频、录音或字幕"></label><p id="filename" class="muted">尚未选择文件</p><button id="upload" disabled>开始处理文件</button><div id="upload-progress" hidden><progress id="upload-bar" max="100" value="0" aria-label="上传进度"></progress><p id="upload-state"></p></div></section>
 <section aria-labelledby="materials-title"><div class="row between"><h2 id="materials-title">我的材料</h2><button id="refresh" class="quiet">刷新</button></div><p id="empty" class="muted">还没有材料，选一个文件开始吧。</p><div id="jobs"></div><button id="more" class="secondary" hidden>查看更多</button></section>
-<section id="detail" class="panel" hidden><h2 id="detail-title"></h2><p id="job-state" aria-live="polite"></p><div class="row actions"><button id="cancel" class="secondary" hidden>取消处理</button><button id="retry" class="secondary" hidden>重新处理</button></div><div id="result-actions" hidden><div class="row actions"><select id="format" aria-label="下载格式"><option value="docx">Word 文稿</option><option value="txt">纯文本</option><option value="md">Markdown</option><option value="srt">SRT 字幕</option><option value="vtt">VTT 字幕</option><option value="outline">笔记大纲</option><option value="json">JSON 数据</option></select><button id="download">下载文稿</button></div><p><button id="notes" class="secondary">整理成 AI 笔记</button></p></div><nav id="views" class="view-switch" aria-label="查看结果" hidden><button id="view-original" aria-pressed="true">原文</button><button id="view-summary" aria-pressed="false">AI 总结</button><button id="view-map" aria-pressed="false">思维导图</button></nav><div id="summary-content" class="reading" hidden></div><div id="map-content" class="reading" hidden></div><div id="transcript"></div><p><button id="delete" class="quiet danger" hidden>删除这份材料</button></p></section></div>
+<section id="detail" class="panel" hidden><h2 id="detail-title"></h2><p id="job-state" aria-live="polite"></p><div class="row actions"><button id="cancel" class="secondary" hidden>取消处理</button><button id="retry" class="secondary" hidden>重新处理</button></div><div id="result-actions" hidden><div class="row actions"><select id="format" aria-label="下载格式"><option value="docx">Word 文稿</option><option value="txt">纯文本</option><option value="md">Markdown</option><option value="srt">SRT 字幕</option><option value="vtt">VTT 字幕</option><option value="outline">思维导图大纲</option><option value="json">JSON 数据</option></select><button id="download">下载文稿</button></div><p><button id="notes" class="secondary">整理成 AI 笔记</button></p></div><nav id="views" class="view-switch" aria-label="查看结果" hidden><button id="view-original" aria-pressed="true">全文转写</button><button id="view-summary" aria-pressed="false">AI 总结</button><button id="view-map" aria-pressed="false">思维导图</button></nav><div id="summary-content" class="reading" hidden></div><div id="map-content" class="reading" hidden></div><div id="transcript"></div><p><button id="delete" class="quiet danger" hidden>删除这份材料</button></p></section></div>
 <footer>处理在服务电脑上进行。电脑需要保持联网、不休眠。<br><a href="/docs">开发者接口文档</a></footer></main></body></html>'''
 
 JS = r'''"use strict";
@@ -122,21 +122,26 @@ function sourceReference(paragraph,segments){
 }
 function renderNotes(data,job){
   const summary=$("summary-content"),map=$("map-content");
-  if(!data.blocks?.length){for(const target of [summary,map]){const hint=document.createElement("p");hint.textContent="还没有 AI 总结。点击上方“生成 AI 总结和导图”，无需重新转写。";target.append(hint);}return;}
-  const root=document.createElement("h3");root.className="map-root";root.textContent=job.title||"内容结构";map.append(root);
-  const description=document.createElement("p");description.className="muted";description.textContent="由同一份 AI 总结组织成可折叠导图，点击原文可核对。";map.append(description);
-  for(const block of data.blocks){
-    const heading=document.createElement("h3");heading.textContent=block.heading;summary.append(heading);
-    const branch=document.createElement("details");branch.className="map-branch";branch.open=true;
-    const title=document.createElement("summary");title.textContent=block.heading;branch.append(title);
-    if(block.stale){for(const target of [summary,branch]){const warning=document.createElement("p");warning.className="warning";warning.textContent="原文已修改，这部分总结需要重新生成。";target.append(warning);}}
-    for(const paragraph of block.paragraphs||[]){
-      const text=document.createElement("p");text.textContent=paragraph.text;summary.append(text,sourceReference(paragraph,data.segments));
-      const node=document.createElement("div");node.className="map-node";const nodeText=document.createElement("p");nodeText.textContent=paragraph.text;node.append(nodeText,sourceReference(paragraph,data.segments));
-      if(paragraph.review==="unverified"){for(const target of [summary,node]){const warning=document.createElement("p");warning.className="warning";warning.textContent="来源待核实";target.append(warning);}}
-      branch.append(node);
+  summary.replaceChildren();map.replaceChildren();
+  const empty=target=>{const hint=document.createElement("p");hint.textContent="尚未生成这项结果。点击上方“生成 AI 总结和导图”，无需重新转写。";target.append(hint);};
+  if(!data.summary?.length)empty(summary);
+  for(const section of data.summary||[]){
+    const heading=document.createElement("h3");heading.textContent=section.heading;
+    const takeaway=document.createElement("p");takeaway.className="takeaway";takeaway.textContent=section.takeaway;
+    summary.append(heading,takeaway);
+    const list=document.createElement("ul");
+    for(const point of section.points){const item=document.createElement("li");const text=document.createElement("p");text.textContent=point.text;item.append(text,sourceReference(point,data.segments));list.append(item);}
+    summary.append(list);
+  }
+  if(!data.mindmap?.length)empty(map);
+  for(const section of data.mindmap||[]){
+    const root=document.createElement("h3");root.className="map-root";root.textContent=section.topic;map.append(root);
+    for(const group of section.branches){
+      const branch=document.createElement("details");branch.className="map-branch";branch.open=true;
+      const title=document.createElement("summary");title.textContent=group.label;branch.append(title);
+      for(const leaf of group.children){const node=document.createElement("div");node.className="map-node";const text=document.createElement("p");text.textContent=leaf.label;node.append(text,sourceReference(leaf,data.segments));branch.append(node);}
+      map.append(branch);
     }
-    map.append(branch);
   }
 }
 async function showJob(job){
@@ -149,7 +154,7 @@ async function showJob(job){
     $("transcript").replaceChildren();const fragment=document.createDocumentFragment();
     renderNotes(data,job);
     for(const segment of data.segments){const item=document.createElement("div");item.className="segment";item.id="segment-"+segment.id;const time=document.createElement("time");time.textContent=timestamp(segment.start);const text=document.createElement("p");text.textContent=segment.text;item.append(time,text);fragment.append(item);}
-    $("transcript").append(fragment);$("result-actions").hidden=false;$("views").hidden=false;resultFor=job.id;switchView(data.blocks?.length?"summary":"original");
+    $("transcript").append(fragment);$("result-actions").hidden=false;$("views").hidden=false;resultFor=job.id;switchView(data.summary?.length?"summary":"original");
     $("notes").textContent=job.processing_mode==="lecture"?"重新生成总结和导图":"生成 AI 总结和导图";
   }
 }

@@ -119,7 +119,7 @@ class LearningPipeline(Pipeline):
             by_id = {s['id']: s for s in state['segments']}
             previous = {b['id']: b for b in state['blocks']}
             completed = []
-            for number, ids in enumerate(groups):
+            for number, ids in enumerate([] if self.config.reading_products else groups):
                 self._check_cancel(job_id)
                 block_id = f'b{number:04d}'
                 selected = [by_id[i] for i in ids]
@@ -150,6 +150,18 @@ class LearningPipeline(Pipeline):
                 state['blocks'] = completed + [previous[f'b{i:04d}'] for i in range(number+1, len(groups)) if f'b{i:04d}' in previous]
                 self.save(job, state)
             state['blocks'] = completed
+            if self.config.reading_products:
+                from .reading_products import generate_products
+                state['reading_products'] = generate_products(
+                    state, writer, cache, model_key, lambda: self._check_cancel(job_id),
+                    lambda message: self._update(job_id, 'summarizing', 93, message))
+                # Reuse existing document exporters without generating a third,
+                # detailed lecture that the phone client never displays.
+                state['blocks'] = [normalize_block({
+                    'heading': section['heading'],
+                    'paragraphs': [{'text': section['takeaway'], 'segment_ids': list(dict.fromkeys(
+                        sid for point in section['points'] for sid in point['segment_ids']))}] + section['points'],
+                }, state['segments'], f'b{i:04d}') for i, section in enumerate(state['reading_products']['summary'])]
             state['legacy'] = False
             state['mode'] = 'lecture'
             state['model'] = runtime.label

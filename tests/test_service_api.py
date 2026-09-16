@@ -32,6 +32,36 @@ def upload(client):
     return response.json()['id']
 
 
+def test_phone_summary_map_and_transcript_are_separate(service, monkeypatch):
+    from videosummarizer.reading_products import SummarySection, MapSection
+    app, client, _ = service
+    calls = []
+
+    class Writer:
+        def __init__(self, *args): pass
+        def ensure_model(self, *args): pass
+        def unload_model(self): pass
+        def _chat_model(self, schema, prompt):
+            calls.append(schema)
+            sid = json.loads(prompt.split('\n字幕：')[1])[0]['id']
+            if schema is SummarySection:
+                return schema(heading='要点', takeaway='核心结论', points=[{'text': '精简重点', 'segment_ids': [sid]}])
+            assert schema is MapSection
+            return schema(topic='主题', branches=[{'label': '方法', 'children': [{'label': '关键词', 'segment_ids': [sid]}]}])
+
+    monkeypatch.setattr('videosummarizer.learning.OllamaSummarizer', Writer)
+    response = client.post('/v1/jobs?filename=example.srt&mode=lecture', headers=headers(), content=SRT)
+    job_id = response.json()['id']
+    app.state.pipeline.run(job_id)
+    result = client.get(f'/v1/jobs/{job_id}/result', headers=headers()).json()
+    assert result['segments'][0]['text'] == 'API example text'
+    assert result['summary'][0]['takeaway'] == '核心结论'
+    assert result['mindmap'][0]['branches'][0]['children'][0]['label'] == '关键词'
+    assert calls == [SummarySection, MapSection]
+    outline = client.get(f'/v1/jobs/{job_id}/export?format=outline', headers=headers()).text
+    assert '关键词' in outline and 'API example text' not in outline
+
+
 def test_auth_and_no_desktop_exposure(service):
     app, client, registry = service
     assert client.get('/healthz').status_code == 200

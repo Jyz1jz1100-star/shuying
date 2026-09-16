@@ -97,7 +97,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
         connection.execute('CREATE TABLE IF NOT EXISTS api_owners (job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE, key_id TEXT NOT NULL)')
         connection.execute('CREATE INDEX IF NOT EXISTS api_owners_key ON api_owners(key_id)')
     store = LLMSettingsStore(config.llm_settings_path, config.ollama_model)
-    pipeline = LearningPipeline(replace(config, restricted_video_links=True), db, store)
+    pipeline = LearningPipeline(replace(config, restricted_video_links=True, reading_products=True), db, store)
     manager = JobManager(db, pipeline)
     mutation_lock = asyncio.Lock()
     buckets: dict[str, deque] = {}
@@ -293,9 +293,10 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
         state = pipeline.state(job)
         if not state['segments']:
             raise HTTPException(409, 'Transcript is not ready; poll job status')
+        from .reading_products import visible_products
         return {'job_id': job_id, 'title': job['title'], 'revision': state['revision'],
                 'segments': [{k: s[k] for k in ('id','start','end','original','text','review','flags') if k in s} for s in state['segments']],
-                'blocks': state['blocks'], 'glossary': state['glossary']}
+                'blocks': state['blocks'], 'glossary': state['glossary'], **visible_products(state)}
 
     @app.get('/v1/jobs/{job_id}/export', tags=['Results'])
     def export(job_id: str, format: Literal['md','docx','txt','vtt','srt','json','outline'] = 'md', key_id: str = Depends(authenticate)):
@@ -304,6 +305,8 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
             state = pipeline.state(job)
             if not state['segments']:
                 raise HTTPException(409, 'Transcript is not ready')
+            if format == 'outline' and 'reading_products' not in state:
+                state = {**state, 'reading_products': {}}
             path = export_workspace(state, job, format)
             return Response(path.read_bytes(), media_type=EXPORTS[format], headers={'Content-Disposition': "attachment; filename*=UTF-8''" + quote(path.name)})
 
