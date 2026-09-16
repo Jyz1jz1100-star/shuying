@@ -34,6 +34,14 @@ API 服务独立于桌面应用，使用单独的数据目录、任务队列和�
 (Invoke-RestMethod http://127.0.0.1:4040/api/tunnels).tunnels.public_url
 ```
 
+在安装服务的同一个 Windows 终端、仓库根目录运行验收脚本：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\verify_api_service.py
+```
+
+它读取本机密钥但不显示密钥，验证 HTTPS、认证、测试字幕处理与七种导出，再删除自己创建的测试任务。使用自定义安装位置时加 `--install-dir <目录>`。只有全部检查通过，才代表带认证的端到端调用已验证。
+
 ngrok 免费计划目前提供一个自动分配的开发域名，端点没有运行时长超时，但有每月 1 GB 出站流量、20,000 次 HTTP 请求等限额；超额会影响可用性。以[官方当前限制](https://ngrok.com/docs/pricing-limits/free-plan-limits)为准。固定域名不等于可用性保证，账号及套餐规则可能变化。API 请求经过 ngrok，TLS 在其入口终止，请将它作为数据处理链路的一部分评估。
 
 ## 密钥与网页接入
