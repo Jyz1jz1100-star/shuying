@@ -74,4 +74,6 @@ $env:PYTHONPATH = Join-Path $serviceRoot 'app\backend'
 
 更新时保留 `data`、`client-key.json`、`ngrok.yml` 和 `service-runtime.json`，在停止状态下更新安装目录的 `app/backend/videosummarizer` 与 `service_supervisor.py`。仓库的代码修改不会自动改变已安装服务。
 
+也可以在安装服务的 Windows 终端、仓库根目录运行 `.\scripts\update_api_service.ps1`。脚本检查是否还有任务在运行，停止服务后复制新代码，保留密钥和材料，再启动服务并检查手机首页。更新期间公网入口会短暂离线。更新后打开原 HTTPS 地址的首页即可在手机上使用，开发者文档仍在 `/docs`。
+
 日志位于 `supervisor.log` 和 `data/api-service.log`，自动轮换。任务失败后查看本机日志；分享日志前检查并删除私人材料与路径。备份时先停止服务，备份整个数据目录。任务不会按时间自动删除，可通过 API 主动清理已完成材料。

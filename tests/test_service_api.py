@@ -48,6 +48,22 @@ def test_auth_and_no_desktop_exposure(service):
     assert client.get('/v1/jobs', headers=headers()).status_code == 401
 
 
+def test_mobile_page_is_public_but_data_remains_protected(service):
+    _, client, _ = service
+    page = client.get('/')
+    assert page.status_code == 200
+    assert 'name="viewport"' in page.text and '/mobile.js' in page.text
+    assert 'frame-ancestors' in page.headers['content-security-policy']
+    assert page.headers['cache-control'] == 'no-store'
+    assert TOKEN not in page.text
+    script = client.get('/mobile.js')
+    assert script.status_code == 200
+    assert 'application/javascript' in script.headers['content-type']
+    assert TOKEN not in script.text
+    assert client.get('/v1/jobs').status_code == 401
+    assert '/' not in client.get('/openapi.json').json()['paths']
+
+
 def test_media_probe_rejects_playlist_and_accepts_wav(tmp_path):
     import wave
     from fastapi import HTTPException

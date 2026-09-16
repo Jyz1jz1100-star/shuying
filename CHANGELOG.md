@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a phone-friendly homepage for connecting with a key, uploading files, following progress, reading transcripts and notes, and downloading documents.
+
 - Add a separate, versioned HTTP API for file uploads, job control, transcripts, notes and document exports, with OpenAPI documentation.
 - Authenticate clients with revocable Bearer keys and isolate their jobs from other clients and the desktop app.
 - Bound upload sizes, processing queues and request rates; provide Windows login startup and optional HTTPS tunneling through ngrok.

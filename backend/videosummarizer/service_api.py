@@ -19,7 +19,7 @@ from urllib.parse import quote
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -109,6 +109,19 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
                   description='Upload media/subtitles, poll jobs, retrieve transcripts and export documents. Bearer keys isolate client jobs.',
                   redoc_url=None)
     app.state.database, app.state.pipeline, app.state.manager = db, pipeline, manager
+
+    @app.get('/', include_in_schema=False, response_class=HTMLResponse)
+    def mobile_home():
+        from .mobile_page import HTML
+        return HTMLResponse(HTML, headers={
+            'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+            'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY'})
+
+    @app.get('/mobile.js', include_in_schema=False)
+    def mobile_script():
+        from .mobile_page import JS
+        return Response(JS, media_type='application/javascript')
+
     if allowed_origins:
         if '*' in allowed_origins:
             raise ValueError('Configure explicit browser origins, not a wildcard')
