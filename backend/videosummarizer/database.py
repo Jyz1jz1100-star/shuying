@@ -31,8 +31,8 @@ class Database:
         if self.path.exists():
             with self.connect() as current:
                 version = current.execute('PRAGMA user_version').fetchone()[0]
-                if version < 2:
-                    with sqlite3.connect(str(self.path) + '.pre-v2.bak') as backup:
+                if version < 3:
+                    with sqlite3.connect(str(self.path) + '.pre-v3.bak') as backup:
                         current.backup(backup)
         with self._write_lock, self.connect() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
@@ -67,10 +67,12 @@ class Database:
             for name, declaration in {
                 'input_type': "TEXT NOT NULL DEFAULT 'url'",
                 'input_name': "TEXT NOT NULL DEFAULT ''",
+                'processing_mode': "TEXT NOT NULL DEFAULT 'lecture'",
+                'transcription_device': "TEXT NOT NULL DEFAULT 'gpu'",
             }.items():
                 if name not in columns:
                     connection.execute(f'ALTER TABLE jobs ADD COLUMN {name} {declaration}')
-            connection.execute('PRAGMA user_version = 2')
+            connection.execute('PRAGMA user_version = 3')
             connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_active_status ON jobs(status) WHERE status NOT IN ('completed','failed','canceled')")
             connection.execute("PRAGMA optimize")
@@ -82,12 +84,14 @@ class Database:
         job_dir: Path,
         transcription_profile: str = "balanced",
         llm_provider: str = "local",
+        processing_mode: str = 'lecture',
+        transcription_device: str = 'gpu',
     ) -> dict[str, Any]:
         now = utc_now()
         with self._write_lock, self.connect() as connection:
             connection.execute(
-                "INSERT INTO jobs(id,url,status,progress,stage_message,created_at,updated_at,job_dir,transcription_profile,llm_provider) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                (job_id, url, "queued", 0, "等待处理", now, now, str(job_dir), transcription_profile, llm_provider),
+                "INSERT INTO jobs(id,url,status,progress,stage_message,created_at,updated_at,job_dir,transcription_profile,llm_provider,processing_mode,transcription_device) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (job_id, url, "queued", 0, "等待处理", now, now, str(job_dir), transcription_profile, llm_provider, processing_mode, transcription_device),
             )
         return self.get_job(job_id)
 
@@ -103,6 +107,7 @@ class Database:
 
     def update_job(self, job_id: str, **values: Any) -> None:
         allowed = {"status","progress","stage_message","title","platform","author","duration","error_code","error_message","output_path","attempt","cancel_requested","input_type","input_name"}
+        allowed.update({'processing_mode', 'llm_provider', 'transcription_device'})
         values = {key: value for key, value in values.items() if key in allowed}
         if not values:
             return

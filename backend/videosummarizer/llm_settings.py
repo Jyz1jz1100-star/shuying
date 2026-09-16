@@ -106,7 +106,7 @@ class LLMSettingsStore:
         payload = self._read()
         return {
             "default_provider": payload["default_provider"],
-            "local_model": self.local_model,
+            "local_model": payload['local_model'],
             "api_base_url": payload["api_base_url"],
             "api_model": payload["api_model"],
             "has_api_key": bool(payload.get("api_key_protected")),
@@ -118,15 +118,20 @@ class LLMSettingsStore:
         api_base_url: str,
         api_model: str,
         api_key: str | None,
+        local_model: str | None = None,
     ) -> dict:
         if default_provider not in {"local", "openai_compatible"}:
             raise LLMSettingsError("不支持的 LLM 类型")
-        normalized_url = normalize_api_base_url(api_base_url)
+        candidate_url = api_base_url if api_base_url.strip() or default_provider != 'local' else self._read()['api_base_url']
+        normalized_url = normalize_api_base_url(candidate_url)
         model = api_model.strip()
         if default_provider == "openai_compatible" and not model:
             raise LLMSettingsError("使用 API 时必须填写模型名称")
         with self._lock:
             previous = self._read()
+            selected_model = (local_model if local_model is not None else previous['local_model']).strip()
+            if not selected_model or len(selected_model) > 200 or any(c.isspace() for c in selected_model):
+                raise LLMSettingsError('本地模型名称不能为空、包含空白或超过 200 字符')
             protected = previous.get("api_key_protected", "")
             if api_key is not None and api_key.strip():
                 protected = _protect_secret(api_key.strip())
@@ -134,6 +139,7 @@ class LLMSettingsStore:
                 raise LLMSettingsError("使用 API 时必须填写 API Key")
             payload = {
                 "default_provider": default_provider,
+                "local_model": selected_model,
                 "api_base_url": normalized_url,
                 "api_model": model,
                 "api_key_protected": protected,
@@ -146,7 +152,7 @@ class LLMSettingsStore:
 
     def runtime(self, provider: str) -> LLMRuntimeSettings:
         if provider == "local":
-            return LLMRuntimeSettings(provider="local", model=self.local_model)
+            return LLMRuntimeSettings(provider="local", model=self._read()['local_model'])
         if provider != "openai_compatible":
             raise LLMSettingsError("不支持的 LLM 类型")
         payload = self._read()
@@ -180,6 +186,7 @@ class LLMSettingsStore:
 
     def _read(self) -> dict:
         defaults = {
+            "local_model": self.local_model,
             "default_provider": "local",
             "api_base_url": "https://api.openai.com/v1",
             "api_model": "",

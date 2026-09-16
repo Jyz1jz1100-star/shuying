@@ -6,6 +6,7 @@ type Block = { id:string; heading:string; segment_ids:string[]; stale:boolean; p
 type StageStatus = string | { name?:string; label?:string; stage?:string; message?:string; status?:string };
 type Workspace = {
   title:string; source_url:string; revision:number; glossary:string[]; segments:Segment[]; blocks:Block[];
+  error_message:string;
   media_available:boolean; media_bytes:number; busy:boolean; legacy:boolean; stage_status:StageStatus[];
 };
 
@@ -14,7 +15,10 @@ const exportFormats:{ format:string; label:string }[] = [
   { format:'docx', label:'Word (docx)' },
   { format:'json', label:'JSON' },
   { format:'srt', label:'SRT 字幕' },
+  { format:'vtt', label:'VTT 字幕' },
+  { format:'txt', label:'纯文本' },
 ];
+const reviewLabels:Record<string,string> = {pending:'待确认', accepted:'已确认', unverified:'来源待核实', digits:'数字变化', negation:'否定关系变化', technical:'技术词变化'};
 
 function asRecord(value:unknown):Record<string,unknown> {
   return value && typeof value === 'object' ? value as Record<string,unknown> : {};
@@ -71,6 +75,7 @@ function normalizeWorkspace(raw:unknown):Workspace {
   const stages = asArray(data.stage_status).map(normalizeStage).filter((item):item is StageStatus => item !== null);
   return {
     title: asText(data.title),
+    error_message: asText(data.error_message),
     source_url: asText(data.source_url),
     revision: asNumber(data.revision),
     glossary: asStringArray(data.glossary),
@@ -139,7 +144,9 @@ async function readError(response:Response,fallback:string):Promise<string> {
   return fallback;
 }
 
-export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void}) {
+export default function Workbench({jobId,onClose,onConfigure,defaultProvider='local'}:{jobId:string;onClose:()=>void;onConfigure?:()=>void;defaultProvider?:'local'|'openai_compatible'}) {
+  const [provider,setProvider] = useState(defaultProvider);
+  const [readingCount,setReadingCount] = useState(200);
   const [workspace,setWorkspace] = useState<Workspace|null>(null);
   const [loading,setLoading] = useState(true);
   const [offline,setOffline] = useState(false);
@@ -323,7 +330,7 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
     setActionError('');
     setNotice('');
     try {
-      const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/regenerate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proofread})});
+      const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/regenerate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proofread,llm_provider:provider})});
       if (response.status === 409) {
         setActionError('版本冲突：任务状态已变化。已刷新最新状态，请重试。');
         await refresh(true);
@@ -395,6 +402,7 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
       </header>
 
       {loadError && <p className="wb-alert error" role="alert">{loadError}</p>}
+      {workspace?.error_message && <p className="wb-alert error" role="alert">{workspace.error_message} 已获得的字幕仍可阅读、修改和导出。</p>}
       {actionError && <p className="wb-alert error" role="alert">{actionError}</p>}
       {conflict && workspace && <div className="wb-alert error"><p>草稿已保留，请核对服务端当前字幕：{selectedSegment?.text}</p><p>当前术语：{workspace.glossary.join('、')}</p><button type="button" onClick={()=>{setDraftRevision(workspace.revision);setGlossaryRevision(workspace.revision);setConflict(false);}}>已核对，以当前版本重试保存</button></div>}
       {notice && <p className="wb-alert ok" role="status">{notice}</p>}
@@ -417,11 +425,13 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
         <>
           <div className="wb-toolbar">
             <div className="wb-toolbar-group">
+              <label>讲义模型 <select value={provider} disabled={writesDisabled} onChange={e=>setProvider(e.target.value as 'local'|'openai_compatible')}><option value="local">本地 Ollama</option><option value="openai_compatible">API（发送字幕给服务商）</option></select></label>
+              {onConfigure && <button type="button" className="wb-secondary" onClick={()=>{if ((!draftDirty && !glossaryDirty) || window.confirm('放弃未保存修改并前往模型设置？')) onConfigure();}}>配置模型</button>}
               <label className="wb-check">
                 <input type="checkbox" checked={proofread} disabled={writesDisabled} onChange={event => setProofread(event.target.checked)} />
                 <span>重新生成时校对字幕（含 SRT / 人工字幕）</span>
               </label>
-              <button type="button" className="wb-primary" disabled={writesDisabled} onClick={() => void regenerate()}>{regenerating ? '正在提交…' : '更新讲义'}</button>
+              <button type="button" className="wb-primary" disabled={writesDisabled || !segments.length} onClick={() => void regenerate()}>{regenerating ? '正在提交…' : workspace.blocks.length ? '更新讲义' : '生成讲义（需要模型）'}</button>
             </div>
             <div className="wb-toolbar-group">
               <span className="wb-export-label">导出</span>
@@ -435,11 +445,11 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
           <div className="wb-body">
             <section className="wb-lecture" aria-labelledby="wb-lecture-title">
               <div className="wb-panel-head">
-                <h3 id="wb-lecture-title">讲义</h3>
-                <p className="wb-hint">自动生成的草稿，请结合原字幕与原音频核实事实，引用不等于事实已验证。</p>
+                <h3 id="wb-lecture-title">{workspace.blocks.length ? '讲义' : '字幕阅读稿'}</h3>
+                <p className="wb-hint">{workspace.blocks.length ? '自动生成的草稿，请结合原字幕与原音频核实事实，引用不等于事实已验证。' : '未经模型改写。点击一段可校订原文，右侧可搜索；导出包含全部字幕。'}</p>
               </div>
               {workspace.blocks.length === 0
-                ? <p className="wb-note">还没有生成讲义内容。可以先补充术语表，然后点击“更新讲义”。</p>
+                ? <div className="wb-reading">{!segments.length && <p className="wb-note">正在等待字幕。处理进度显示在上方。</p>}{segments.slice(0,readingCount).map(segment=><button type="button" key={segment.id} onClick={()=>selectSegment(segment.id,true)} className={`wb-reading-row${selectedId===segment.id?' selected':''}`}><time>{formatTime(segment.start)}</time><span>{segment.text}</span></button>)}{segments.length>readingCount && <button type="button" className="wb-secondary" onClick={()=>setReadingCount(n=>n+200)}>继续阅读（剩余 {segments.length-readingCount} 段）</button>}</div>
                 : workspace.blocks.map(block => (
                   <article className="wb-block" key={block.id}>
                     <div className="wb-block-head">
@@ -472,7 +482,7 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
                           })}
                           {paragraph.segment_ids.length === 0 && <span className="wb-hint">该段没有引用字幕</span>}
                         </div>
-                        {paragraph.review && paragraph.review !== 'accepted' && <span className="wb-chip review">{paragraph.review}</span>}
+                        {paragraph.review && paragraph.review !== 'accepted' && <span className="wb-chip review">{reviewLabels[paragraph.review] || paragraph.review}</span>}
                       </div>
                     ))}
                   </article>
@@ -533,10 +543,10 @@ export default function Workbench({jobId,onClose}:{jobId:string;onClose:()=>void
                       <button type="button" className="wb-secondary" disabled={writesDisabled} onClick={() => { setDraft(selectedSegment.suggested); setDraftDirty(true); }}>采用建议</button>
                     </div>
                   )}
-                  {selectedSegment.review && <p className="wb-label">校对标记：{selectedSegment.review}</p>}
+                  {selectedSegment.review && <p className="wb-label">校对标记：{reviewLabels[selectedSegment.review] || selectedSegment.review}</p>}
                   {selectedSegment.flags.length > 0 && (
                     <ul className="wb-flags" aria-label="字幕标记">
-                      {selectedSegment.flags.map(flag => <li className="wb-chip flag" key={flag}>{flag}</li>)}
+                      {selectedSegment.flags.map(flag => <li className="wb-chip flag" key={flag}>{reviewLabels[flag] || flag}</li>)}
                     </ul>
                   )}
                   <div className="wb-editor-actions">

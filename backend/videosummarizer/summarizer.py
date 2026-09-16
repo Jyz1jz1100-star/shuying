@@ -70,7 +70,7 @@ class OllamaSummarizer:
             response.raise_for_status()
             models = response.json().get("models", [])
             names = {item.get("name") or item.get("model") for item in models}
-            return True, self.config.ollama_model in names
+            return True, self.runtime.model in names
         except Exception:
             return False, False
 
@@ -85,9 +85,9 @@ class OllamaSummarizer:
             raise OllamaError("Ollama 未运行，请启动 Ollama 后重试")
         if model_ready:
             return
-        progress(12, f"首次使用：正在下载 {self.config.ollama_model} 本地模型")
+        progress(12, f"首次使用：正在下载 {self.runtime.model} 本地模型")
         try:
-            with httpx.stream("POST", f"{self.config.ollama_url}/api/pull", json={"model": self.config.ollama_model, "stream": True}, timeout=None) as response:
+            with httpx.stream("POST", f"{self.config.ollama_url}/api/pull", json={"model": self.runtime.model, "stream": True}, timeout=None) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():
                     cancel_check()
@@ -110,7 +110,7 @@ class OllamaSummarizer:
         try:
             httpx.post(
                 f"{self.config.ollama_url}/api/generate",
-                json={"model": self.config.ollama_model, "keep_alive": 0},
+                json={"model": self.runtime.model, "keep_alive": 0},
                 timeout=10,
             )
         except httpx.HTTPError:

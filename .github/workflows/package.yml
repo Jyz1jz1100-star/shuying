@@ -1,7 +1,10 @@
-name: Windows test package
-on: workflow_dispatch
+name: Windows package
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
 permissions:
-  contents: read
+  contents: write
 jobs:
   package:
     runs-on: windows-latest
@@ -20,6 +23,11 @@ jobs:
       - run: .\.venv\Scripts\python.exe scripts/fetch_runtime.py
       - run: .\.venv\Scripts\python.exe -m pytest -q
       - run: .\build_windows.ps1
+      - name: Verify bundled example and model-free exports
+        run: |
+          $env:VIDEOSUMMARIZER_DATA_DIR = Join-Path $env:RUNNER_TEMP 'shuying-core-test'
+          $appTest = Start-Process -FilePath 'dist/VideoSummarizer/VideoSummarizer.exe' -ArgumentList '--self-test-core' -WindowStyle Hidden -PassThru -Wait
+          if ($appTest.ExitCode -ne 0) { throw 'Packaged core self-test failed' }
       - run: Compress-Archive -Path dist/VideoSummarizer -DestinationPath dist/Shuying-windows-x64.zip
       - run: Get-FileHash dist/Shuying-windows-x64.zip -Algorithm SHA256 | Format-List | Out-File dist/SHA256.txt
       - uses: actions/upload-artifact@v4
@@ -28,3 +36,9 @@ jobs:
           path: |
             dist/Shuying-windows-x64.zip
             dist/SHA256.txt
+      - name: Attach package to published release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload $env:RELEASE_TAG dist/Shuying-windows-x64.zip dist/SHA256.txt

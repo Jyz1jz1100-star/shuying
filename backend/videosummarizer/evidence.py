@@ -400,7 +400,7 @@ def render_markdown(state: dict, title: str, source_url: str = "") -> str:
     blocks = [item for item in _as_list(source.get("blocks")) if isinstance(item, dict)]
     lines: list[str] = [f"# {_escape_inline(title) or '未命名总结'}", ""]
 
-    labels: list[str] = ['讲义草稿：引用提供原文定位，不代表事实已核实']
+    labels: list[str] = ['讲义草稿：引用提供原文定位，不代表事实已核实' if blocks else '字幕阅读稿：未经模型改写']
     if source_url and source_url.startswith('https://'):
         lines.extend(['来源：' + _escape_inline(source_url), ''])
     if any(item.get("review") == REVIEW_PENDING for item in segments):
@@ -428,6 +428,10 @@ def render_markdown(state: dict, title: str, source_url: str = "") -> str:
         lines.extend(glossary)
         lines.append("")
 
+    if not blocks:
+        lines.extend(['## 字幕全文', ''])
+        for segment in segments:
+            lines.extend([f'[{format_timecode(segment["start"])}] {_escape_inline(segment["text"])}', ''])
     for block in blocks:
         heading = _escape_inline(block.get("heading")) or "未命名章节"
         suffix = "（待更新）" if block.get("stale") else ""

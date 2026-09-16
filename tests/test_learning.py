@@ -168,3 +168,105 @@ def test_legacy_migration_does_not_forge_citations(project):
     atomic_json(directory/'transcript.json',raw_transcript())
     state=project[2].state(project[1].get_job('test'))
     assert state['legacy'] is True and state['blocks']==[]
+
+
+def test_transcript_mode_never_initializes_llm_and_exports_content(project, monkeypatch):
+    from docx import Document
+    from io import BytesIO
+    config, db, pipeline, manager, client = project
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Transcript mode must not call a model')
+    monkeypatch.setattr(pipeline.llm_settings, 'runtime', forbidden)
+    monkeypatch.setattr('videosummarizer.learning.OllamaSummarizer', forbidden)
+    monkeypatch.setattr(pipeline, '_transcribe', forbidden)
+    response = client.post('/api/import?filename=lesson.vtt&processing_mode=transcript&llm_provider=openai_compatible',
+                           content=b'WEBVTT\n\n00:01.000 --> 00:02.500\nHello &amp; GPU\n')
+    assert response.status_code == 202
+    job_id = response.json()['id']
+    pipeline.run(job_id)
+    assert db.get_job(job_id)['status'] == 'completed'
+    state = client.get(f'/api/jobs/{job_id}/workspace').json()
+    assert state['blocks'] == [] and state['segments'][0]['text'] == 'Hello & GPU'
+    for format in ['txt', 'srt', 'json']:
+        assert 'Hello & GPU' in client.get(f'/api/jobs/{job_id}/export?format={format}').text
+    assert 'Hello &amp; GPU' in client.get(f'/api/jobs/{job_id}/export?format=md').text
+    vtt = client.get(f'/api/jobs/{job_id}/export?format=vtt').text
+    assert 'WEBVTT' in vtt and '00:00:01.000 --> 00:00:02.500' in vtt and 'Hello &amp; GPU' in vtt
+    document = Document(BytesIO(client.get(f'/api/jobs/{job_id}/export?format=docx').content))
+    assert any('Hello & GPU' in p.text for p in document.paragraphs)
+    assert client.delete(f'/api/jobs/{job_id}/media').status_code == 200
+    assert (config.jobs_dir/job_id/'input.vtt').exists()
+
+
+def test_demo_without_model_and_upgrade_to_lecture(project, monkeypatch):
+    config, db, pipeline, manager, client = project
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Demo must not call a model')
+    monkeypatch.setattr('videosummarizer.learning.OllamaSummarizer', forbidden)
+    response = client.post('/api/demo')
+    assert response.status_code == 201
+    job = response.json()
+    assert job['status'] == 'completed' and job['processing_mode'] == 'transcript'
+    state = pipeline.state(job)
+    assert state['segments'] and not state['blocks']
+    assert state['needs_proofread'] is False
+    response = client.post(f'/api/jobs/{job["id"]}/regenerate', json={'llm_provider':'local'})
+    assert response.status_code == 202
+    assert db.get_job(job['id'])['processing_mode'] == 'lecture'
+
+
+def test_asr_transcript_provenance_preserved(project, monkeypatch):
+    directory = create(project)
+    config, db, pipeline, manager, client = project
+    db.update_job('test', processing_mode='transcript')
+    data = raw_transcript()
+    data['source'] = 'whisper_cpp'
+    atomic_json(directory/'transcript_raw.json', data)
+    pipeline.run('test')
+    assert json.loads((directory/'transcript.json').read_text(encoding='utf-8'))['source'] == 'whisper_cpp'
+
+
+def test_url_transcript_export_uses_probed_title(project, monkeypatch):
+    from docx import Document
+    directory = create(project)
+    db, pipeline = project[1:3]
+    db.update_job('test', processing_mode='transcript')
+    def input_transcript(job, cache):
+        db.update_job(job['id'], title='New source title')
+        return Transcript.model_validate(raw_transcript())
+    monkeypatch.setattr(pipeline, '_input_transcript', input_transcript)
+    output = pipeline.run('test')
+    assert Document(output).paragraphs[0].text == 'New source title'
+
+
+def test_vtt_export_preserves_multiline_manual_text(project):
+    from videosummarizer.text_utils import parse_subtitle
+    directory = create(project)
+    db, pipeline, manager, client = project[1:]
+    pipeline.save(db.get_job('test'), make_workspace(raw_transcript()))
+    text = 'First line\n\nSecond line & <literal>\r\n\r\nThird line'
+    assert client.patch('/api/jobs/test/segments/s000001', json={'revision':1,'text':text}).status_code == 200
+    output = client.get('/api/jobs/test/export?format=vtt')
+    path = directory/'roundtrip.vtt'
+    path.write_bytes(output.content)
+    segments = parse_subtitle(path)
+    assert len(segments) == 1 and segments[0].text == 'First line Second line & <literal> Third line'
+
+
+@pytest.mark.parametrize('ids,expected_calls', [([], 1), (['invented-id'], 2)])
+def test_uncertain_citations_remain_explicitly_unverified(project, monkeypatch, ids, expected_calls):
+    create(project)
+    calls = []
+    class FakeWriter:
+        def __init__(self,*args): pass
+        def ensure_model(self,*args): pass
+        def unload_model(self): pass
+        def _chat_model(self,*args):
+            calls.append(1)
+            return CitedBlock(heading='Uncertain', paragraphs=[{'text':'Uncertain claim','segment_ids':ids}])
+    monkeypatch.setattr('videosummarizer.learning.OllamaSummarizer', FakeWriter)
+    project[2].run('test')
+    state = project[2].state(project[1].get_job('test'))
+    assert len(calls) == expected_calls
+    assert state['blocks'][0]['paragraphs'][0]['segment_ids'] == []
+    assert state['blocks'][0]['paragraphs'][0]['review'] == 'unverified'

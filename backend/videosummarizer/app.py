@@ -5,6 +5,7 @@ import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, status
@@ -52,7 +53,7 @@ async def lifespan(_: FastAPI):
     manager.stop()
 
 
-app = FastAPI(title="述影", version="2.0.0a1", lifespan=lifespan, docs_url=None, redoc_url=None)
+app = FastAPI(title="述影", version="2.0.0a2", lifespan=lifespan, docs_url=None, redoc_url=None)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
 
 
@@ -74,17 +75,19 @@ async def loopback_only(request: Request, call_next):
 
 @app.get("/api/health")
 def health():
-    ollama_ready, model_ready = OllamaSummarizer(settings).health()
+    runtime = llm_settings.runtime('local')
+    ollama_ready, model_ready = OllamaSummarizer(settings, runtime).health()
     llm_public = llm_settings.public()
     api_ready = bool(llm_public["api_model"] and llm_public["has_api_key"])
     selected_llm_ready = model_ready if llm_public["default_provider"] == "local" else api_ready
     disk = shutil.disk_usage(settings.data_dir)
     whisper_runtime_ready = pipeline.transcriber.runtime_ready()
     return {
-        "ok": selected_llm_ready and whisper_runtime_ready and disk.free >= 8 * 1024**3,
+        "ok": disk.free >= 128 * 1024**2,
+        "lecture_ready": selected_llm_ready,
         "ollama_ready": ollama_ready,
         "model_ready": model_ready,
-        "model": settings.ollama_model,
+        "model": runtime.model,
         "whisper_runtime_ready": whisper_runtime_ready,
         "whisper_backend": "Vulkan",
         "free_disk_gb": round(disk.free / 1024**3, 2),
@@ -100,14 +103,28 @@ def get_llm_settings():
     return llm_settings.public()
 
 
+@app.get('/api/settings/local-models')
+def local_models():
+    try:
+        response = httpx.get(f'{settings.ollama_url}/api/tags', timeout=3)
+        response.raise_for_status()
+        return {'available': True, 'models': [item.get('name') or item.get('model')
+                for item in response.json().get('models', []) if item.get('name') or item.get('model')]}
+    except (httpx.HTTPError, ValueError):
+        return {'available': False, 'models': []}
+
+
 @app.put("/api/settings/llm")
 def update_llm_settings(request: UpdateLLMSettingsRequest):
+    if manager.active_job_id or live_subtitles.active:
+        raise HTTPException(409, '请先等待当前处理结束再修改模型设置')
     try:
         return llm_settings.save(
             request.default_provider,
             request.api_base_url,
             request.api_model,
             request.api_key,
+            request.local_model,
         )
     except (LLMSettingsError, OSError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -143,13 +160,14 @@ def create_job(request: CreateJobRequest):
     except UnsafeUrlError as exc:
         raise HTTPException(status_code=400, detail={"code": "UNSAFE_URL", "message": str(exc)}) from exc
     try:
-        llm_settings.runtime(request.llm_provider)
+        if request.processing_mode == 'lecture':
+            llm_settings.runtime(request.llm_provider)
     except LLMSettingsError as exc:
         raise HTTPException(status_code=400, detail={"code": "LLM_CONFIG_INVALID", "message": str(exc)}) from exc
     job_id = uuid.uuid4().hex
     job_dir = settings.jobs_dir / job_id
     job_dir.mkdir(parents=True, exist_ok=False)
-    job = database.create_job(job_id, url, job_dir, request.transcription_profile, request.llm_provider)
+    job = database.create_job(job_id, url, job_dir, request.transcription_profile, request.llm_provider, request.processing_mode, request.transcription_device)
     manager.enqueue(job_id)
     return job
 
@@ -200,7 +218,10 @@ def cancel_job(job_id: str):
 
 
 @app.post("/api/jobs/{job_id}/retry")
-def retry_job(job_id: str):
+def retry_job(job_id: str, transcription_device: Literal['gpu', 'cpu'] | None = None):
+    existing = database.get_job(job_id)
+    if transcription_device and existing and existing['status'] in {'failed', 'canceled'}:
+        database.update_job(job_id, transcription_device=transcription_device)
     job = manager.retry(job_id)
     if not job:
         raise HTTPException(status_code=409, detail="只有失败或已取消任务可以重试")

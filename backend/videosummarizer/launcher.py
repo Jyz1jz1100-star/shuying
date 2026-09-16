@@ -45,6 +45,27 @@ def choose_port(start: int) -> int:
 
 def main() -> None:
     multiprocessing.freeze_support()
+    if '--self-test-core' in sys.argv:
+        # Runs on Windows build runners without audio devices or a GPU.
+        import tempfile
+        from pathlib import Path
+        from videosummarizer.config import resource_path
+        from videosummarizer.text_utils import parse_subtitle
+        from videosummarizer.evidence import make_workspace
+        from videosummarizer.exports import export_workspace
+        try:
+            segments = parse_subtitle(resource_path('examples/checkpoints.srt'))
+            if not segments:
+                raise ValueError('Bundled example is missing or empty')
+            state = make_workspace({'segments': [s.model_dump() for s in segments]})
+            with tempfile.TemporaryDirectory(prefix='shuying-core-test-') as directory:
+                job = {'title': 'Bundled example', 'job_dir': directory, 'url': ''}
+                for format in ['md', 'docx', 'srt', 'vtt', 'txt', 'json']:
+                    if export_workspace(state, job, format).stat().st_size == 0:
+                        raise ValueError('Empty export')
+        except Exception:
+            raise SystemExit(1)
+        return
     if "--self-test" in sys.argv:
         from importlib.metadata import version
 

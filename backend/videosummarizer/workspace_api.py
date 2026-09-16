@@ -17,6 +17,8 @@ from .database import ACTIVE_STATUSES
 from .evidence import apply_edit
 from .exports import export_workspace
 from .learning import workspace_lock
+from .llm_settings import LLMSettingsError
+from .config import resource_path
 from .security import validate_public_url, UnsafeUrlError
 from .text_utils import parse_subtitle
 
@@ -34,10 +36,11 @@ class GlossaryEdit(BaseModel):
 
 class Regenerate(BaseModel):
     proofread: bool = False
+    llm_provider: Literal['local', 'openai_compatible'] | None = None
 
 
 def media_files(directory):
-    return [p for p in directory.iterdir() if p.is_file() and (p.name.startswith(('input.', 'source.')) and p.suffix != '.srt' or p.name == 'transcribe.wav')]
+    return [p for p in directory.iterdir() if p.is_file() and (p.name.startswith(('input.', 'source.')) and p.suffix not in {'.srt', '.vtt'} or p.name == 'transcribe.wav')]
 
 
 def router_for(database, pipeline, manager, live, settings):
@@ -58,6 +61,8 @@ def router_for(database, pipeline, manager, live, settings):
         directory = Path(job['job_dir'])
         files = media_files(directory)
         return {**state, 'title': job.get('title') or '待处理材料', 'source_url': job['url'],
+                'error_message': job.get('error_message') or '',
+                'llm_provider': job.get('llm_provider', 'local'),
                 'media_available': (directory / 'transcribe.wav').is_file(),
                 'media_bytes': sum(p.stat().st_size for p in files),
                 'busy': job['status'] in ACTIVE_STATUSES or manager.active_job_id == job['id'],
@@ -70,11 +75,14 @@ def router_for(database, pipeline, manager, live, settings):
 
     @router.post('/api/import', status_code=202)
     async def import_file(request: Request, filename: str, llm_provider: Literal['local', 'openai_compatible'] = 'local',
-                          transcription_profile: Literal['balanced', 'accurate'] = 'balanced', source_url: str = ''):
+                          transcription_profile: Literal['balanced', 'accurate'] = 'balanced', source_url: str = '',
+                          processing_mode: Literal['transcript', 'lecture'] = 'lecture',
+                          transcription_device: Literal['gpu', 'cpu'] = 'gpu'):
         if live.active:
             raise HTTPException(409, '请先停止实时字幕')
         suffix = Path(filename).suffix.lower()
-        if suffix not in {'.srt', '.mp4', '.mkv', '.webm', '.mov', '.mp3', '.wav', '.m4a', '.flac'}:
+        is_subtitle = suffix in {'.srt', '.vtt'}
+        if suffix not in {'.srt', '.vtt', '.mp4', '.mkv', '.webm', '.mov', '.mp3', '.wav', '.m4a', '.flac'}:
             raise HTTPException(400, '不支持的文件格式')
         if source_url:
             try:
@@ -85,7 +93,7 @@ def router_for(database, pipeline, manager, live, settings):
         directory = settings.jobs_dir / job_id
         directory.mkdir(parents=True)
         destination = directory / ('input' + suffix)
-        limit = 10 * 1024**2 if suffix == '.srt' else settings.max_download_bytes
+        limit = 10 * 1024**2 if is_subtitle else settings.max_download_bytes
         persisted = False
         try:
             size = 0
@@ -97,7 +105,7 @@ def router_for(database, pipeline, manager, live, settings):
                     if shutil.disk_usage(directory).free < len(chunk) + 128 * 1024**2:
                         raise HTTPException(507, '磁盘空间不足')
                     output.write(chunk)
-            if suffix == '.srt':
+            if is_subtitle:
                 destination.read_text(encoding='utf-8-sig', errors='strict')
                 segments = parse_subtitle(destination)
                 if not segments:
@@ -116,10 +124,10 @@ def router_for(database, pipeline, manager, live, settings):
             if not 0 < duration <= settings.max_duration_seconds:
                 raise HTTPException(400, '材料时长必须在 0–2 小时内')
             atomic_json(directory / 'input_metadata.json', {'sha256': file_fingerprint(destination), 'size': size})
-            job = database.create_job(job_id, source_url, directory, transcription_profile, llm_provider)
+            job = database.create_job(job_id, source_url, directory, transcription_profile, llm_provider, processing_mode, transcription_device)
             persisted = True
-            database.update_job(job_id, input_type='srt' if suffix == '.srt' else 'media', input_name=Path(filename).name,
-                                title=Path(filename).stem[:180], duration=duration, platform='本地字幕' if suffix == '.srt' else '本地媒体')
+            database.update_job(job_id, input_type=suffix[1:] if is_subtitle else 'media', input_name=Path(filename).name,
+                                title=Path(filename).stem[:180], duration=duration, platform='本地字幕' if is_subtitle else '本地媒体')
             result = database.get_job(job_id)
             manager.enqueue(job_id)
             return result
@@ -134,6 +142,17 @@ def router_for(database, pipeline, manager, live, settings):
             if isinstance(exc, Exception):
                 raise HTTPException(400, '无法读取材料，请检查格式、编码和音轨') from exc
             raise
+
+    @router.post('/api/demo', status_code=201)
+    def demo():
+        # An original bundled subtitle: no media download, ASR, or model calls.
+        directory = settings.jobs_dir / uuid.uuid4().hex
+        directory.mkdir()
+        shutil.copyfile(resource_path('examples/checkpoints.srt'), directory / 'input.srt')
+        job = database.create_job(directory.name, '', directory, processing_mode='transcript')
+        database.update_job(job['id'], title='示例：检查点与可信讲义', input_type='srt', platform='原创示例')
+        pipeline.run(job['id'])
+        return database.get_job(job['id'])
 
     @router.get('/api/jobs/{job_id}/workspace')
     def workspace(job_id: str):
@@ -188,8 +207,15 @@ def router_for(database, pipeline, manager, live, settings):
             editable(job)
             if live.active:
                 raise HTTPException(409, '请先停止实时字幕')
+            if not pipeline.state(job)['segments']:
+                raise HTTPException(409, '请先完成字幕导入或转写')
+            provider = request.llm_provider or job.get('llm_provider') or 'local'
+            try:
+                pipeline.llm_settings.runtime(provider)
+            except LLMSettingsError as exc:
+                raise HTTPException(400, str(exc)) from exc
             atomic_json(Path(job['job_dir']) / 'request.json', request.model_dump())
-            database.update_job(job_id, status='queued', progress=0, cancel_requested=0, error_message=None, error_code=None, stage_message='等待继续处理')
+            database.update_job(job_id, processing_mode='lecture', llm_provider=provider, status='queued', progress=0, cancel_requested=0, error_message=None, error_code=None, stage_message='等待继续处理')
             manager.enqueue(job_id)
             return database.get_job(job_id)
 
@@ -216,7 +242,7 @@ def router_for(database, pipeline, manager, live, settings):
             return snapshot(job)
 
     @router.get('/api/jobs/{job_id}/export')
-    def export(job_id: str, format: Literal['md', 'docx', 'json', 'srt'] = 'md'):
+    def export(job_id: str, format: Literal['md', 'docx', 'json', 'srt', 'txt', 'vtt'] = 'md'):
         with workspace_lock:
             job = get_job(job_id)
             state = pipeline.state(job)
@@ -225,7 +251,7 @@ def router_for(database, pipeline, manager, live, settings):
             path = export_workspace(state, job, format)
             # Capture this revision before releasing the lock; streaming a mutable
             # shared export path can otherwise serve a later revision.
-            types = {'md': 'text/markdown', 'json': 'application/json', 'srt': 'application/x-subrip',
+            types = {'md': 'text/markdown', 'txt': 'text/plain', 'vtt': 'text/vtt', 'json': 'application/json', 'srt': 'application/x-subrip',
                      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
             return Response(path.read_bytes(), media_type=types[format], headers={
                 'Content-Disposition': "attachment; filename*=UTF-8''" + quote(path.name), 'Cache-Control': 'no-store'})

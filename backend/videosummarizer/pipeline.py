@@ -232,6 +232,7 @@ class Pipeline:
         return max(candidates, key=lambda path: path.stat().st_size)
 
     def _transcribe(self, job_id: str, audio_path: Path, profile: str, job_dir: Path) -> Transcript:
+        device = (self.database.get_job(job_id) or {}).get('transcription_device', 'gpu')
         profile_label = "高精度 large-v3" if profile == "accurate" else "均衡 large-v3-turbo"
         self._update(job_id, "transcribing", 37, f"正在启动 Whisper Vulkan（{profile_label}）")
         try:
@@ -241,6 +242,7 @@ class Pipeline:
                 lambda progress, message: self._update(job_id, "transcribing", progress, message),
                 lambda: self._check_cancel(job_id),
                 job_dir,
+                device=device,
             )
         except JobCancelled:
             raise

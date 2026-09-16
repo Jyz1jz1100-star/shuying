@@ -19,7 +19,23 @@ def export_workspace(state: dict, job: dict, format: str) -> Path:
     title = job.get('title') or '述影讲义'
     source = job.get('url') or ''
     path = directory / (safe_filename(title) + '_讲义.' + format)
-    if format == 'json':
+    if format in {'txt', 'vtt'}:
+        if format == 'txt':
+            content = '\n\n'.join(f'[{format_timecode(s["start"])}] {s["text"]}' for s in state['segments']) + '\n'
+        else:
+            def stamp(seconds):
+                ms = round(seconds * 1000)
+                return f'{ms//3600000:02d}:{ms//60000%60:02d}:{ms//1000%60:02d}.{ms%1000:03d}'
+            from html import escape
+            def cue_text(text):
+                # Blank lines delimit cues in WebVTT; retain words and line breaks,
+                # but do not let a paragraph break split one edited source cue.
+                return escape('\n'.join(line for line in text.replace('\r', '').split('\n') if line.strip()))
+            content = 'WEBVTT\n\n' + '\n\n'.join(
+                f'{s["id"]}\n{stamp(s["start"])} --> {stamp(max(s["end"], s["start"] + .05))}\n{cue_text(s["text"])}'
+                for s in state['segments']) + '\n'
+        path.write_text(content, encoding='utf-8')
+    elif format == 'json':
         atomic_json(path, {**state, 'title': title, 'source_url': source, 'schema_version': 2})
     elif format == 'srt':
         from .learning import transcript_from_state
@@ -37,12 +53,15 @@ def export_workspace(state: dict, job: dict, format: str) -> Path:
         normal.font.size = Pt(11)
         normal.element.get_or_add_rPr().get_or_add_rFonts().set(qn('w:eastAsia'), 'Microsoft YaHei')
         document.add_heading(title, 0)
-        document.add_paragraph('讲义草稿 · 引用提供原文定位，不代表事实已核实。')
+        document.add_paragraph('讲义草稿 · 引用提供原文定位，不代表事实已核实。' if state['blocks'] else '字幕阅读稿 · 未经模型改写。')
         document.add_paragraph(f'字幕修订版本：{state["revision"]}')
         if source:
             document.add_paragraph('来源：' + source)
         if any(s.get('review') == 'pending' for s in state['segments']):
             document.add_paragraph('包含尚未确认的字幕修改。')
+        if not state['blocks']:
+            for segment in state['segments']:
+                document.add_paragraph(f'[{format_timecode(segment["start"])}] {segment["text"]}')
         for block in state['blocks']:
             document.add_heading(block['heading'], 1)
             if block.get('stale'):

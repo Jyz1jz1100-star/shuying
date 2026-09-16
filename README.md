@@ -6,16 +6,25 @@ Local-first technical video notes with source-linked paragraphs, reviewable tran
 
 [English](README.en.md) · [架构](docs/architecture.md) · [验证记录](docs/validation.md) · [贡献指南](CONTRIBUTING.md)
 
-> **2.0.0-alpha.1**：Windows 本地应用，正在寻找首批试用者。引用提供核查入口，不保证模型生成内容正确。尚无外部社区采用度或准确率结论。
+> **2.0.0-alpha.2**：Windows 本地应用，正在寻找首批试用者。引用提供核查入口，不保证模型生成内容正确。尚无外部社区采用度或准确率结论。
+
+## 第一次使用
+
+1. 从 [Releases](https://github.com/Jyz1jz1100-star/shuying/releases) 下载 Windows ZIP，完整解压后运行 `VideoSummarizer.exe`。无需安装 Python 或 Node.js。测试版尚未签名。
+2. 点击“先体验示例”，无需模型、密钥或显卡，即可阅读、搜索、修改和导出原创示例字幕。
+3. 导入自己的 UTF-8 SRT/VTT，或选择视频 / 音频。默认“阅读 / 转写字幕”，不调用总结模型。
+4. 需要提炼内容时，再在“模型设置”选择已下载的 Ollama 模型或填写兼容 API，然后从工作区生成讲义。
+
+媒体转写仍需要 Whisper 模型，首次按需下载；可选 GPU 或 CPU，CPU 通常明显更慢。文本导入完全跳过音频转写。
 
 ## 工作流程
 
-1. 粘贴公开视频链接，或导入视频、音频、UTF-8 SRT。
+1. 粘贴公开视频链接，或导入视频、音频、UTF-8 SRT/VTT。
 2. 优先使用人工字幕，否则用 whisper.cpp Vulkan 本地转写。
 3. 生成中文讲义，保留专有名词，每段引用关联具体字幕片段。
 4. 点击引用查看原始字幕与当前文本；有回听音频时可跳到对应位置。
 5. 接受、拒绝或手动修改校对建议。原文保留，数字、否定词及部分技术词变化会被标记。
-6. 更新受影响的章节，导出 Markdown、Word、SRT 或结构化 JSON。
+6. 更新受影响的章节，导出 Markdown、Word、SRT、VTT、TXT 或结构化 JSON。未生成讲义时，Markdown/Word 导出完整字幕阅读稿；TXT/SRT/VTT 始终导出当前字幕。
 
 转写、校对和讲义按块保存检查点。失败或取消后点击“继续处理”，复用依赖未变化的完成块。引用时间由程序根据真实片段 ID 计算。
 
@@ -23,7 +32,7 @@ Local-first technical video notes with source-linked paragraphs, reviewable tran
 
 ## Windows 开发安装
 
-需要 Windows x64、Python 3.12、Node.js 22.13+ 和 pnpm 11。转写需要兼容 Vulkan 的 GPU 与驱动；SRT 导入不需要 GPU 或 Whisper 运行时。
+需要 Windows x64、Python 3.12、Node.js 22.13+ 和 pnpm 11。GPU 转写需要兼容 Vulkan 的显卡与驱动，也可显式选择 CPU。SRT/VTT 导入不需要 GPU、Whisper 运行时或总结模型。
 
 ```powershell
 git clone https://github.com/Jyz1jz1100-star/shuying.git
@@ -33,7 +42,7 @@ powershell -ExecutionPolicy Bypass -File .\setup_windows.ps1
 
 总结模型二选一：
 
-- **本地**：安装并启动 [Ollama](https://ollama.com/)。默认 `qwen3.5:9b-q4_K_M` 按需下载。较小模型可在启动前设置 `$env:OLLAMA_MODEL='qwen3.5:4b'`，建议先运行 `ollama pull qwen3.5:4b`。
+- **本地**：安装并启动 [Ollama](https://ollama.com/)，在“模型设置”选择已有模型，或输入精确名称。仅保存设置不会下载模型；生成讲义时若该模型不存在，会按需下载。初始默认值为 `qwen3.5:9b-q4_K_M`，可改为适合本机的较小模型。
 - **API**：在“LLM 设置”填写 OpenAI 兼容地址、精确模型 ID 与密钥。远程地址必须为 HTTPS，请求格式为 `/v1/chat/completions`。
 
 ```powershell

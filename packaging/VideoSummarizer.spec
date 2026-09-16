@@ -4,6 +4,7 @@ from pathlib import Path
 
 project_root = Path(SPECPATH).parent
 datas = [
+    (str(project_root / "examples"), "examples"),
     (str(project_root / "frontend_dist"), "frontend_dist"),
     (str(project_root / "vendor" / "whispercpp" / "runtime"), "whispercpp"),
     (str(project_root / "THIRD_PARTY_NOTICES.md"), "."),

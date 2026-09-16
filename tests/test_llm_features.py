@@ -32,6 +32,21 @@ def test_api_provider_cannot_be_saved_without_key(tmp_path):
         store.save("openai_compatible", "https://api.example.com/v1", "model-x", None)
 
 
+def test_local_model_persists_and_drives_health_and_unload(tmp_path, monkeypatch):
+    store = LLMSettingsStore(tmp_path/'settings.json', 'default-model')
+    store.save('local', '', '', None, 'small-model:latest')
+    runtime = LLMSettingsStore(store.path, 'default-model').runtime('local')
+    assert runtime.model == 'small-model:latest'
+    calls = []
+    monkeypatch.setattr(httpx, 'get', lambda *a, **kw: httpx.Response(200,
+        json={'models':[{'name':'small-model:latest'}]}, request=httpx.Request('GET','http://localhost')))
+    monkeypatch.setattr(httpx, 'post', lambda *a, **kw: calls.append(kw['json']))
+    writer = OllamaSummarizer(Settings(ollama_model='default-model'), runtime)
+    writer.ensure_model(lambda *a: pytest.fail('Existing model should not download'))
+    writer.unload_model()
+    assert calls[0]['model'] == runtime.model
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows DPAPI only")
 def test_api_key_is_dpapi_encrypted_and_can_be_reloaded(tmp_path):
     path = tmp_path / "llm_settings.json"

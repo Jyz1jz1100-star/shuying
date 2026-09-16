@@ -13,7 +13,8 @@ from .checkpoints import Checkpoints, atomic_json, fingerprint
 from .evidence import make_workspace, normalize_block, split_blocks
 from .pipeline import Pipeline, PipelineError, JobCancelled
 from .schemas import Transcript, SourceMetadata, TranscriptSegment
-from .summarizer import OllamaSummarizer
+from .summarizer import OllamaSummarizer, OllamaError
+from .llm_settings import LLMSettingsError
 from .subtitle_builder import build_srt
 from .text_utils import parse_subtitle
 
@@ -39,7 +40,7 @@ def read_json(path: Path, fallback=None):
 
 
 def transcript_from_state(state: dict) -> Transcript:
-    return Transcript(language=state.get('language', 'unknown'), source='human_subtitles',
+    return Transcript(language=state.get('language', 'unknown'), source=state.get('source', 'unknown'),
                       segments=[TranscriptSegment(start=s['start'], end=s['end'], text=s['text']) for s in state['segments']])
 
 
@@ -82,12 +83,27 @@ class LearningPipeline(Pipeline):
                 raw = self._input_transcript(job, cache)
                 state = make_workspace(raw.model_dump(), raw.model_dump())
                 state['language'] = raw.language
+                state['source'] = raw.source
                 state['block_ids'] = split_blocks(state['segments'])
                 state['legacy'] = False
                 state['needs_proofread'] = raw.source != 'human_subtitles'
                 atomic_json(directory / 'transcript_raw.json', raw.model_dump())
                 self.save(job, state)
             self._check_cancel(job_id)
+            if job.get('processing_mode') == 'transcript':
+                # Reading/exporting a transcript must not initialize any LLM.
+                state['mode'] = 'transcript'
+                state['needs_proofread'] = False
+                self.save(job, state)
+                atomic_json(directory / 'transcript.json', transcript_from_state(state).model_dump())
+                from .exports import export_workspace
+                job = self.database.get_job(job_id)
+                with workspace_lock:
+                    output = export_workspace(state, job, 'docx')
+                self.database.update_job(job_id, status='completed', progress=100,
+                    stage_message='字幕已就绪，可阅读、校订和导出；未调用总结模型',
+                    output_path=str(output), error_code=None, error_message=None)
+                return output
             runtime = self.llm_settings.runtime(job.get('llm_provider') or 'local')
             writer = OllamaSummarizer(self.config, runtime)
             writer.ensure_model(lambda p, m: self._update(job_id, 'probing', p, m), lambda: self._check_cancel(job_id))
@@ -122,8 +138,10 @@ class LearningPipeline(Pipeline):
                             + '\n字幕：' + json.dumps([{'id': s['id'], 'text': s['text']} for s in selected], ensure_ascii=False))
                         payload = writer._chat_model(CitedBlock, prompt).model_dump()
                         allowed = set(ids)
-                        if any(not p['segment_ids'] or set(p['segment_ids']) - allowed for p in payload['paragraphs']):
+                        if any(set(p['segment_ids']) - allowed for p in payload['paragraphs']):
                             payload = writer._chat_model(CitedBlock, prompt + '\n再次核对：所有引用 ID 必须来自输入；无法确定则明确返回空列表。').model_dump()
+                    for paragraph in payload['paragraphs']:
+                        paragraph['segment_ids'] = [sid for sid in paragraph['segment_ids'] if sid in ids]
                     block = normalize_block(payload, selected, block_id)
                     cache.save(block_id, key, payload)
                     block['input_key'] = key
@@ -133,6 +151,7 @@ class LearningPipeline(Pipeline):
                 self.save(job, state)
             state['blocks'] = completed
             state['legacy'] = False
+            state['mode'] = 'lecture'
             state['model'] = runtime.label
             state['revision'] += 1
             self.save(job, state)
@@ -152,6 +171,8 @@ class LearningPipeline(Pipeline):
             raise
         except PipelineError:
             raise
+        except (LLMSettingsError, OllamaError) as exc:
+            raise PipelineError('MODEL_UNAVAILABLE', '模型连接或生成失败，已保留字幕和已完成内容。请在模型设置中检查 Ollama、所选模型或 API 连接，然后继续处理。') from exc
         except Exception as exc:
             # Avoid persisting arbitrary provider responses or credentials.
             raise PipelineError('PROCESSING_FAILED', f'处理失败（{type(exc).__name__}），已保留完成内容。请检查模型连接和磁盘后继续。') from exc
@@ -164,8 +185,8 @@ class LearningPipeline(Pipeline):
         raw_path = directory / 'transcript_raw.json'
         if raw_path.exists():
             return Transcript.model_validate_json(raw_path.read_text(encoding='utf-8'))
-        if job.get('input_type') == 'srt':
-            return Transcript(language='unknown', source='human_subtitles', segments=parse_subtitle(directory / 'input.srt'))
+        if job.get('input_type') in {'srt', 'vtt'}:
+            return Transcript(language='unknown', source='human_subtitles', segments=parse_subtitle(directory / ('input.' + job['input_type'])))
         if job.get('input_type') == 'media':
             paths = list(directory.glob('input.*'))
             if not paths:

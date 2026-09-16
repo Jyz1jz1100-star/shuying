@@ -159,7 +159,10 @@ class WhisperCppTranscriber:
         progress: ProgressCallback,
         cancel_check: CancelCheck,
         job_dir: Path,
+        device: str = 'gpu',
     ) -> Transcript:
+        if device not in {'gpu', 'cpu'}:
+            raise WhisperCppError('不支持的转写设备')
         if not self.runtime_ready():
             raise WhisperCppError("程序包中缺少 Whisper Vulkan 运行时")
         model_path = self.ensure_model(profile, progress, cancel_check)
@@ -168,6 +171,7 @@ class WhisperCppTranscriber:
         progress(44, "正在准备 16kHz 单声道音频")
         cache = Checkpoints(job_dir / 'checkpoints')
         audio_key = fingerprint({'sha256': file_fingerprint(audio_path), 'profile': profile,
+                                 'device': device,
                                  'seconds': self.config.transcription_chunk_seconds,
                                  'overlap': self.config.transcription_overlap_seconds, 'version': 2})
         wav_key = cache.load('wav', audio_key)
@@ -191,6 +195,9 @@ class WhisperCppTranscriber:
             "-bs", "5", "-bo", "5", "-l", "auto", "--host", "127.0.0.1", "--port", str(port),
             "-sns",
         ]
+        if device == 'cpu':
+            command.append('--no-gpu')
+        device_label = 'CPU' if device == 'cpu' else 'Vulkan GPU'
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         process = subprocess.Popen(
             command,
@@ -205,12 +212,12 @@ class WhisperCppTranscriber:
         )
         base_url = f"http://127.0.0.1:{port}"
         try:
-            progress(45, "正在把 Whisper 模型加载到 Vulkan GPU")
+            progress(45, f'正在加载 Whisper 模型（{device_label}）')
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 cancel_check()
                 if process.poll() is not None:
-                    raise WhisperCppError(f"Whisper Vulkan 服务启动失败，请查看 {log_path.name}")
+                    raise WhisperCppError(f"Whisper {device_label} 服务启动失败；可选择 CPU 后重试，请查看 {log_path.name}")
                 try:
                     if httpx.get(f"{base_url}/health", timeout=1).status_code == 200:
                         break
@@ -233,7 +240,7 @@ class WhisperCppTranscriber:
                 actual_end = min(duration, nominal_start + chunk_seconds)
                 index += 1
                 progress_value = 46 + int(12 * (index - 1) / total_chunks)
-                progress(progress_value, f"GPU 转写第 {index}/{total_chunks} 段（自动识别中英语言）")
+                progress(progress_value, f"{device_label} 转写第 {index}/{total_chunks} 段（自动识别中英语言）")
                 chunk_key = fingerprint({'input': audio_key, 'start': actual_start, 'end': actual_end})
                 payload = cache.load(f'audio{index:05d}', chunk_key)
                 if payload is None:
@@ -259,7 +266,7 @@ class WhisperCppTranscriber:
             if not segments:
                 raise WhisperCppError("视频中未识别到足够的语音内容")
             language_label = ", ".join(languages) if languages else "unknown"
-            progress(58, "GPU 语音转写完成")
+            progress(58, f"{device_label} 语音转写完成")
             return Transcript(language=language_label, source="whisper_cpp", segments=segments)
         finally:
             self._stop_process(process)

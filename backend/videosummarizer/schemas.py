@@ -19,13 +19,16 @@ class CreateJobRequest(BaseModel):
     url: HttpUrl
     transcription_profile: TranscriptionProfile = "balanced"
     llm_provider: LLMProvider = "local"
+    processing_mode: Literal['transcript', 'lecture'] = 'lecture'
+    transcription_device: Literal['gpu', 'cpu'] = 'gpu'
 
 
 class UpdateLLMSettingsRequest(BaseModel):
     default_provider: LLMProvider = "local"
-    api_base_url: str = Field(default="https://api.openai.com/v1", min_length=1, max_length=500)
+    api_base_url: str = Field(default="https://api.openai.com/v1", max_length=500)
     api_model: str = Field(default="", max_length=200)
     api_key: str | None = Field(default=None, max_length=1000)
+    local_model: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class TestLLMSettingsRequest(BaseModel):
@@ -126,6 +129,6 @@ class TranscriptSegment(BaseModel):
 
 class Transcript(BaseModel):
     language: str
-    source: Literal["human_subtitles", "whisper", "whisper_cpp"]
+    source: Literal["human_subtitles", "whisper", "whisper_cpp", "unknown"]
     segments: list[TranscriptSegment]
     proofread_by: str | None = None

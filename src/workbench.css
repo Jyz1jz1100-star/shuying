@@ -147,3 +147,8 @@
   .wb-segment-list { max-height:280px; }
   .wb-lecture,.wb-source { padding:15px; }
 }
+ .wb-reading-row { display:flex; width:100%; gap:16px; padding:14px 10px; border:0; border-bottom:1px solid #e2e8e3; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; line-height:1.8; }
+ .wb-reading-row time { flex:0 0 62px; color:#5d7068; font-size:13px; }
+ .wb-reading-row span { overflow-wrap:anywhere; }
+ .wb-reading-row:hover,.wb-reading-row.selected { background:#eaf4ed; }
+ .wb-toolbar select { padding:8px; max-width:230px; border:1px solid #cedbd2; border-radius:8px; background:white; }
