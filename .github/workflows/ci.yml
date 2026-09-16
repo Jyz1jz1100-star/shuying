@@ -1,0 +1,21 @@
+name: Windows checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@11.21.0
+      - run: python -m pip install -r requirements-lock.txt
+      - run: pnpm install --frozen-lockfile
+      - run: python -m pytest -q
+      - run: pnpm typecheck
+      - run: pnpm build

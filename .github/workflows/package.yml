@@ -1,0 +1,30 @@
+name: Windows test package
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@11.21.0
+      - run: python -m venv .venv
+      - run: .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+      - run: pnpm install --frozen-lockfile
+      - run: .\.venv\Scripts\python.exe scripts/fetch_runtime.py
+      - run: .\.venv\Scripts\python.exe -m pytest -q
+      - run: .\build_windows.ps1
+      - run: Compress-Archive -Path dist/VideoSummarizer -DestinationPath dist/Shuying-windows-x64.zip
+      - run: Get-FileHash dist/Shuying-windows-x64.zip -Algorithm SHA256 | Format-List | Out-File dist/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Shuying-windows-x64-test-build
+          path: |
+            dist/Shuying-windows-x64.zip
+            dist/SHA256.txt

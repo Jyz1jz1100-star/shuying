@@ -1,0 +1,13 @@
+name: Bug report / 问题反馈
+description: Reproducible problem without private media or credentials
+body:
+  - type: textarea
+    attributes:
+      label: Problem and reproduction steps
+      description: Include app version, Windows version, GPU/driver, input type, expected and actual behavior. No keys or private content.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Minimal sample or sanitized error
+      description: Only share material you may redistribute.

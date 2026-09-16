@@ -1,0 +1,12 @@
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+pydantic>=2.10,<3
+httpx>=0.28,<1
+yt-dlp>=2026.5.0
+av>=14,<20
+numpy>=2,<3
+PyAudioWPatch==0.2.12.8
+srt==3.5.3
+python-docx>=1.1,<2
+pyinstaller>=6.12,<7
+pytest>=8,<9
