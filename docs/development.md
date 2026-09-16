@@ -29,7 +29,13 @@ pnpm build
 powershell -ExecutionPolicy Bypass -File .\build_windows.ps1
 ```
 
-Keep ordinary tests independent of model services by mocking model calls. Real-model checks are opt-in and must record the model and hardware. See [validation](validation.md) for completed checks and remaining gaps.
+Keep ordinary tests independent of model services by mocking model calls. To run an optional real-model check with an installed model and an empty test directory:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/smoke_local.py --model qwen3.5:4b --data-dir qa_output/my-smoke
+```
+
+Model output quality and runtime depend on the input, model, and hardware. Automated checks do not establish transcription accuracy or factual correctness.
 
 The executable is `dist\VideoSummarizer\VideoSummarizer.exe`; distribute the complete directory. The Whisper runtime is fetched with a pinned version and SHA256. Model weights are downloaded separately and must not enter Git. Include third-party notices and licenses with distributions.
 
@@ -41,4 +47,4 @@ Default data directory: `%LOCALAPPDATA%\VideoSummarizer`. Override with `VIDEOSU
 
 The application is a local, single-user loopback service. Do not expose it publicly. API keys are stored using Windows DPAPI. Task revision snapshots are stored under `history/`; there is no history-restore UI yet.
 
-See [architecture](architecture.md) for processing, citations, and checkpoints; [product criteria](product-criteria.md) for acceptance scenarios; and [Contributing](../CONTRIBUTING.md) for review and documentation conventions.
+See [architecture](architecture.md) for processing, citations, and checkpoints, and [Contributing](../CONTRIBUTING.md) for review and documentation conventions.
