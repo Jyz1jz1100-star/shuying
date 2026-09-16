@@ -4,7 +4,7 @@
 
 一节课、一段访谈、一期播客，听过之后也能留下用得上的内容。述影可以把声音转成文字，让你搜索、修改、导出；需要整理重点时，还可以用 AI 生成带有原文出处的笔记。
 
-**[下载 Windows 版](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.2/Shuying-windows-x64.zip)** · [使用指南](docs/user-guide.md) · [反馈问题](https://github.com/Jyz1jz1100-star/shuying/issues) · [English](README.en.md)
+**[下载 Windows 版](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.3/Shuying-windows-x64.zip)** · [使用指南](docs/user-guide.md) · [反馈问题](https://github.com/Jyz1jz1100-star/shuying/issues) · [English](README.en.md)
 
 免费开源 · 本地保存 · Windows x64 · 当前为 Alpha 测试版
 

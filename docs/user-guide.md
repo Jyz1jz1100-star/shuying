@@ -4,7 +4,7 @@
 
 ## 第一次打开
 
-从[发布页](https://github.com/Jyz1jz1100-star/shuying/releases/tag/v2.0.0-alpha.2)下载 `Shuying-windows-x64.zip`，完整解压后运行 `VideoSummarizer.exe`。`Source code` 是开发用源码，不是可直接打开的应用。测试包尚未签名。
+从[发布页](https://github.com/Jyz1jz1100-star/shuying/releases/tag/v2.0.0-alpha.3)下载 `Shuying-windows-x64.zip`，完整解压后运行 `VideoSummarizer.exe`。`Source code` 是开发用源码，不是可直接打开的应用。测试包尚未签名。
 
 先点击“先体验示例”，熟悉阅读、搜索、修改和导出。这个示例不需要模型、密钥、显卡或网络服务。
 

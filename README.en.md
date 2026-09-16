@@ -4,7 +4,7 @@
 
 Keep something useful from a course, interview, podcast, or recording. Shuying lets you transcribe speech, edit the text, and export it to your favorite tools. Optionally, turn the transcript into Chinese AI notes with links back to the source passages.
 
-**[Download for Windows](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.2/Shuying-windows-x64.zip)** · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Jyz1jz1100-star/shuying/issues) · [中文](README.md)
+**[Download for Windows](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.3/Shuying-windows-x64.zip)** · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Jyz1jz1100-star/shuying/issues) · [中文](README.md)
 
 Free and open source · Locally stored · Windows x64 · Alpha
 
