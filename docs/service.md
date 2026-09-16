@@ -64,6 +64,8 @@ $env:PYTHONPATH = Join-Path $serviceRoot 'app\backend'
 
 服务每次认证都会重新读取注册表，不需要重启即可撤销。密钥允许上传、处理、导出和删除对应任务，应按使用者分配。
 
+手机访问密钥与模型供应商的 API Key 是两种凭据。手机只输入 `client-key.json` 中的 `api_key`；模型供应商密钥由管理员配置在电脑端，不要分发给手机使用者。服务端生成笔记会使用 `llm_settings.json` 中的默认模型，在线模型密钥使用 Windows DPAPI 加密保存。`scripts/configure_service_llm.py --settings-file <加密设置文件>` 可验证并导入同一 Windows 用户准备的模型配置，同时设置 API 服务与桌面端；修改前应等待任务结束。配好后运行验收脚本并加 `--notes`，可测试在线笔记生成（会消耗少量模型用量）。
+
 允许网页跨域访问时，停止服务，将 `service-runtime.json` 的 `origins` 设置为明确的来源数组，例如 `["https://your-app.example"]`，再启动。不要使用 `*`。服务端模型设置独立保存在 `data/llm_settings.json`；默认笔记模型与项目默认值相同，需要本机 Ollama 可用。
 
 ## 停止、启动与更新

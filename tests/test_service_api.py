@@ -159,3 +159,22 @@ def test_rate_limit_and_cors(tmp_path):
     response = client.options('/v1/jobs',headers={'Origin':'https://client.example','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization,content-type'})
     assert response.status_code == 200 and response.headers['access-control-allow-origin'] == 'https://client.example'
     assert client.options('/v1/jobs',headers={'Origin':'https://evil.example','Access-Control-Request-Method':'POST'}).status_code == 400
+
+
+def test_notes_uses_operator_default_even_for_old_local_job(service, monkeypatch):
+    app, client, _ = service
+    job_id = upload(client)
+    app.state.pipeline.run(job_id)
+    assert app.state.database.get_job(job_id)['llm_provider'] == 'local'
+    monkeypatch.setattr('videosummarizer.llm_settings._protect_secret', lambda value: 'protected')
+    monkeypatch.setattr('videosummarizer.llm_settings._unprotect_secret', lambda value: 'test-secret')
+    app.state.pipeline.llm_settings.save('openai_compatible', 'https://example.com/v1', 'test-model', 'test-secret')
+    response = client.post(f'/v1/jobs/{job_id}/notes', headers={**headers(), 'Content-Type': 'application/json'}, json={})
+    assert response.status_code == 202
+    assert app.state.database.get_job(job_id)['llm_provider'] == 'openai_compatible'
+    caps = client.get('/v1/capabilities', headers=headers()).json()
+    assert caps['notes'] == {'provider': 'openai_compatible', 'model': 'test-model'}
+    assert 'test-secret' not in json.dumps(caps)
+    response = client.post('/v1/jobs?filename=example.srt&mode=lecture', headers=headers(), content=SRT)
+    assert response.status_code == 202
+    assert app.state.database.get_job(response.json()['id'])['llm_provider'] == 'openai_compatible'

@@ -27,7 +27,7 @@ from .config import Settings
 from .database import ACTIVE_STATUSES, Database
 from .exports import export_workspace
 from .learning import LearningPipeline, workspace_lock
-from .llm_settings import LLMSettingsStore
+from .llm_settings import LLMSettingsError, LLMSettingsStore
 from .manager import JobManager
 from .materials import import_material
 
@@ -179,6 +179,14 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
         if job['status'] in ACTIVE_STATUSES or manager.active_job_id == job['id']:
             raise HTTPException(409, 'Job is still active')
 
+    def notes_provider():
+        provider = store.public()['default_provider']
+        try:
+            store.runtime(provider)
+        except (LLMSettingsError, OSError):
+            raise HTTPException(503, 'Notes model is not configured; contact the operator')
+        return provider
+
     def capacity(new_job: bool = False):
         with db.connect() as connection:
             total = connection.execute('SELECT count(*) FROM jobs').fetchone()[0]
@@ -201,7 +209,9 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
                 'max_subtitle_bytes': min(config.max_download_bytes, 10 * 1024**2),
                 'max_duration_seconds': config.max_duration_seconds, 'max_active_jobs': max_active,
                 'max_retained_jobs': max_jobs, 'requests_per_minute': requests_per_minute,
-                'url_import': False}
+                'url_import': False,
+                'notes': {'provider': store.public()['default_provider'],
+                          'model': store.public()['api_model'] if store.public()['default_provider'] == 'openai_compatible' else store.public()['local_model']}}
 
     @app.post('/v1/jobs', response_model=JobView, status_code=202, tags=['Jobs'],
               summary='Upload a file as raw bytes; processing is asynchronous',
@@ -228,7 +238,8 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
                 async with asyncio.timeout(120):
                     job = await import_material(request, filename, database=db,
                         manager=SimpleNamespace(enqueue=lambda _: None), settings=config,
-                        processing_mode=mode, transcription_device=device, owner_id=key_id)
+                        processing_mode=mode, transcription_device=device, owner_id=key_id,
+                        llm_provider=notes_provider() if mode == 'lecture' else store.public()['default_provider'])
             except TimeoutError:
                 raise HTTPException(408, 'Upload timed out')
             manager.enqueue(job['id'])
@@ -294,8 +305,9 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
             capacity()
             if not pipeline.state(job)['segments']:
                 raise HTTPException(409, 'Transcript is not ready')
-            atomic_json(Path(job['job_dir']) / 'request.json', {'proofread': body.proofread, 'llm_provider': 'local'})
-            db.update_job(job_id, processing_mode='lecture', status='queued', progress=0, cancel_requested=0,
+            provider = notes_provider()
+            atomic_json(Path(job['job_dir']) / 'request.json', {'proofread': body.proofread, 'llm_provider': provider})
+            db.update_job(job_id, processing_mode='lecture', llm_provider=provider, status='queued', progress=0, cancel_requested=0,
                           error_code=None, error_message=None, stage_message='等待整理笔记')
             manager.enqueue(job_id)
             return owned(job_id, key_id)
