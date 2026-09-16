@@ -57,6 +57,8 @@
 
 ## 一起改进述影
 
+想从手机应用、脚本或其他电脑调用？述影也提供独立的 HTTP API，支持上传材料、查询进度和导出结果。见 [API 接入指南](docs/api.md)与[服务部署](docs/service.md)。目前需从源码部署，桌面下载包不包含服务安装器。
+
 欢迎[反馈问题或提出需求](https://github.com/Jyz1jz1100-star/shuying/issues)。告诉我们你想完成什么、在哪一步遇到了困难；附上版本和脱敏后的错误信息会更有帮助。
 
 想参与代码、文档或翻译？请看[贡献指南](CONTRIBUTING.md)与[开发指南](docs/development.md)。版本变化见[更新记录](CHANGELOG.md)。

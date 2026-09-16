@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add a separate, versioned HTTP API for file uploads, job control, transcripts, notes and document exports, with OpenAPI documentation.
+- Authenticate clients with revocable Bearer keys and isolate their jobs from other clients and the desktop app.
+- Bound upload sizes, processing queues and request rates; provide Windows login startup and optional HTTPS tunneling through ngrok.
+
 ## 2.0.0-alpha.3
 
 - Open supported YouTube/Bilibili source videos at the selected subtitle time; retain Bilibili multipart selection.

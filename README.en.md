@@ -43,6 +43,8 @@ Audio transcription needs a speech recognition model, downloaded on first use. G
 
 See the [user guide (中文)](docs/user-guide.md) for model setup, storage, and troubleshooting.
 
+For scripts, mobile apps and other computers, a separate HTTP API supports uploads, progress polling and document exports. See the [API guide](docs/api.md) and [deployment guide](docs/service.md) (中文). API deployment currently requires source installation; it is not included in the Alpha.3 desktop ZIP.
+
 ## Help improve Shuying
 
 [Share a problem or request](https://github.com/Jyz1jz1100-star/shuying/issues) with what you wanted to do, where you got stuck, and your version. Remove private content and credentials from attachments.

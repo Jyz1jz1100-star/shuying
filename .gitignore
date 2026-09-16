@@ -50,4 +50,8 @@ next-env.d.ts
 *.sqlite3*
 *.bak
 llm_settings.json
+api-keys.json
+client-key.json
+ngrok.yml
+service-runtime.json
 /public/og.png

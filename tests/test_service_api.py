@@ -1,0 +1,145 @@
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from videosummarizer.config import Settings
+from videosummarizer.service_api import create_service, KeyStore
+
+TOKEN = 'a' * 48
+OTHER = 'b' * 48
+SRT = '1\n00:00:01,000 --> 00:00:03,000\nAPI example text\n'.encode()
+
+
+@pytest.fixture
+def service(tmp_path):
+    config = Settings(data_dir=tmp_path, max_download_bytes=1024, max_duration_seconds=60)
+    registry = tmp_path / 'keys.json'
+    registry.write_text(json.dumps({'keys': [{'id': name, 'sha256': hashlib.sha256(token.encode()).hexdigest()} for name, token in [('a', TOKEN), ('b', OTHER)]]}))
+    app = create_service(config, KeyStore(registry), start_worker=False)
+    return app, TestClient(app), registry
+
+
+def headers(token=TOKEN):
+    return {'Authorization': f'Bearer {token}', 'Content-Type': 'application/octet-stream'}
+
+
+def upload(client):
+    response = client.post('/v1/jobs?filename=example.srt', headers=headers(), content=SRT)
+    assert response.status_code == 202, response.text
+    return response.json()['id']
+
+
+def test_auth_and_no_desktop_exposure(service):
+    app, client, registry = service
+    assert client.get('/healthz').status_code == 200
+    assert client.get('/v1/jobs').status_code == 401
+    assert client.get('/v1/jobs?api_key='+TOKEN).status_code == 401
+    assert client.get('/v1/jobs', headers=headers('wrong')).status_code == 401
+    for path in ['/api/settings/llm', '/api/live/devices', '/api/shutdown', '/api/jobs']:
+        assert client.get(path, headers=headers()).status_code == 404
+    schema = client.get('/openapi.json').json()
+    assert schema['paths']['/v1/jobs']['post']['security']
+    assert 'application/octet-stream' in schema['paths']['/v1/jobs']['post']['requestBody']['content']
+    assert client.get('/v1/capabilities', headers=headers()).json()['url_import'] is False
+    registry.write_text('{"keys": []}')
+    assert client.get('/v1/jobs', headers=headers()).status_code == 401
+
+
+def test_media_probe_rejects_playlist_and_accepts_wav(tmp_path):
+    import wave
+    from fastapi import HTTPException
+    from videosummarizer.materials import inspect_material
+    config = Settings(data_dir=tmp_path, max_duration_seconds=60)
+    media = tmp_path / 'sample.wav'
+    with wave.open(str(media), 'wb') as output:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(16000)
+        output.writeframes(b'\0\0' * 16000)
+    duration, digest = inspect_material(media, False, config)
+    assert duration == pytest.approx(1) and len(digest) == 64
+    media.write_text('#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nhttp://127.0.0.1/private.ts\n#EXT-X-ENDLIST\n')
+    with pytest.raises(Exception):
+        inspect_material(media, False, config)
+
+
+def test_job_storage_cannot_escape_service_directory(service, tmp_path):
+    app, client, _ = service
+    job_id = upload(client)
+    protected = tmp_path / 'outside'
+    protected.mkdir()
+    (protected / 'keep.txt').write_text('keep')
+    with app.state.database.connect() as connection:
+        connection.execute('UPDATE jobs SET job_dir=?,status=? WHERE id=?', (str(protected), 'completed', job_id))
+    assert client.delete('/v1/jobs/'+job_id, headers=headers()).status_code == 500
+    assert (protected / 'keep.txt').read_text() == 'keep'
+
+
+def test_ownership_on_every_job_operation(service):
+    app, client, _ = service
+    job_id = upload(client)
+    assert 'job_dir' not in client.get('/v1/jobs/'+job_id, headers=headers()).json()
+    assert client.get('/v1/jobs', headers=headers(OTHER)).json()['total'] == 0
+    for method, suffix in [('get',''),('get','/result'),('get','/export'),('post','/cancel'),('post','/retry'),('post','/notes'),('delete','')]:
+        response = getattr(client, method)('/v1/jobs/'+job_id+suffix, headers={**headers(OTHER), 'Content-Type': 'application/json'}, **({'json': {}} if suffix == '/notes' else {}))
+        assert response.status_code == 404, (method,suffix,response.text)
+
+
+def test_complete_export_delete_and_pagination(service):
+    app, client, _ = service
+    job_id = upload(client)
+    assert client.get(f'/v1/jobs/{job_id}/result', headers=headers()).status_code == 409
+    app.state.pipeline.run(job_id)
+    result = client.get(f'/v1/jobs/{job_id}/result', headers=headers())
+    assert result.status_code == 200 and result.json()['segments'][0]['text'] == 'API example text'
+    assert 'job_dir' not in result.text
+    for fmt in ['md','docx','srt','vtt','txt','json','outline']:
+        response = client.get(f'/v1/jobs/{job_id}/export?format={fmt}', headers=headers())
+        assert response.status_code == 200 and response.content
+    assert client.get('/v1/jobs?limit=1&offset=1', headers=headers()).json()['items'] == []
+    assert client.post(f'/v1/jobs/{job_id}/retry', headers=headers()).status_code == 409
+    assert client.delete(f'/v1/jobs/{job_id}', headers=headers()).status_code == 204
+    assert client.get('/v1/jobs', headers=headers()).json()['total'] == 0
+    assert client.get(f'/v1/jobs/{job_id}', headers=headers()).status_code == 404
+
+
+def test_upload_limits_and_validation(service):
+    app, client, _ = service
+    for name in ['../test.srt','a/b.srt','C:test.srt']:
+        assert client.post('/v1/jobs', params={'filename': name}, headers=headers(), content=SRT).status_code == 400
+    assert client.post('/v1/jobs?filename=a.srt', headers=headers(), content=b'x'*1025).status_code == 413
+    assert client.post('/v1/jobs?filename=a.srt', headers=headers(), content=iter([b'x'*800,b'x'*800])).status_code == 413
+    assert client.post('/v1/jobs?filename=a.exe', headers=headers(), content=b'MZ').status_code == 400
+    assert client.post('/v1/jobs?filename=a.srt', headers=headers(), content=b'bad').status_code == 400
+    assert client.post('/v1/jobs?filename=a.srt', headers={'Authorization': 'Bearer '+TOKEN}, content=SRT).status_code == 415
+    assert client.get('/v1/jobs?limit=-1', headers=headers()).status_code == 422
+    assert app.state.database.list_jobs() == []
+    assert list((Path(app.state.database.path).parent/'jobs').iterdir()) == []
+
+
+def test_capacity_and_active_delete(service):
+    app, client, _ = service
+    ids = [upload(client) for _ in range(4)]
+    assert client.post('/v1/jobs?filename=a.srt', headers=headers(), content=SRT).status_code == 429
+    assert client.delete('/v1/jobs/'+ids[0], headers=headers()).status_code == 409
+    app.state.database.update_job(ids[0], status='failed')
+    app.state.manager.active_job_id = ids[0]
+    assert client.post('/v1/jobs/'+ids[0]+'/retry', headers=headers()).status_code == 409
+    assert client.delete('/v1/jobs/'+ids[0], headers=headers()).status_code == 409
+
+
+def test_rate_limit_and_cors(tmp_path):
+    registry = tmp_path/'keys.json'
+    registry.write_text(json.dumps({'keys':[{'id':'a','sha256':hashlib.sha256(TOKEN.encode()).hexdigest()}]}))
+    app = create_service(Settings(data_dir=tmp_path),KeyStore(registry), start_worker=False,
+                         allowed_origins=('https://client.example',), requests_per_minute=2)
+    client = TestClient(app)
+    for _ in range(2):
+        assert client.get('/v1/jobs',headers=headers()).status_code == 200
+    assert client.get('/v1/jobs',headers=headers()).status_code == 429
+    response = client.options('/v1/jobs',headers={'Origin':'https://client.example','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization,content-type'})
+    assert response.status_code == 200 and response.headers['access-control-allow-origin'] == 'https://client.example'
+    assert client.options('/v1/jobs',headers={'Origin':'https://evil.example','Access-Control-Request-Method':'POST'}).status_code == 400

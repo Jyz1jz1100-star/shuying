@@ -86,6 +86,7 @@ class Database:
         llm_provider: str = "local",
         processing_mode: str = 'lecture',
         transcription_device: str = 'gpu',
+        owner_id: str | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         with self._write_lock, self.connect() as connection:
@@ -93,6 +94,8 @@ class Database:
                 "INSERT INTO jobs(id,url,status,progress,stage_message,created_at,updated_at,job_dir,transcription_profile,llm_provider,processing_mode,transcription_device) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (job_id, url, "queued", 0, "等待处理", now, now, str(job_dir), transcription_profile, llm_provider, processing_mode, transcription_device),
             )
+            if owner_id is not None:
+                connection.execute('INSERT INTO api_owners(job_id,key_id) VALUES(?,?)', (job_id, owner_id))
         return self.get_job(job_id)
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
