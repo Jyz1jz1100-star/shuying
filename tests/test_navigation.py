@@ -57,8 +57,10 @@ def test_outline_preserves_text_stale_and_unknown_citations(tmp_path):
         {'text': '有效 ![图片](https://evil.test/pixel)', 'segment_ids': ['s000001']},
         {'text': '无出处内容', 'segment_ids': ['missing']},
     ]}]
+    from videosummarizer.reading_products import source_key
+    data['reading_products'] = {'source_key': source_key(data), 'mindmap': [{'topic':'<script>主题', 'branches':[{'label':'方法','children':[{'label':'有效 ![图片](https://evil.test/pixel)','segment_ids':['s000001']},{'label':'无出处内容','segment_ids':['missing']}]}]}]}
     text = render_outline(data, '材料', 'https://youtu.be/abcdefghijk')
-    assert '（待更新）' in text and '来源待确认' in text
+    assert '来源待确认' in text
     assert '[00:00:37](https://www.youtube.com/watch?v=abcdefghijk&t=37s)' in text
     assert '<script>' not in text and '![图片](' not in text
     path = export_workspace(data, {'job_dir': str(tmp_path), 'title': '材料'}, 'outline')
@@ -70,4 +72,4 @@ def test_outline_preserves_text_stale_and_unknown_citations(tmp_path):
 
 
 def test_empty_outline_is_explicit():
-    assert '尚未生成讲义' in render_outline(state(), '材料')
+    assert '导图尚未生成' in render_outline(state(), '材料')

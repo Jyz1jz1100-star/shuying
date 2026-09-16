@@ -63,9 +63,12 @@ def main() -> None:
                 for format in ['md', 'docx', 'srt', 'vtt', 'txt', 'json']:
                     if export_workspace(state, job, format).stat().st_size == 0:
                         raise ValueError('Empty export')
-                state['blocks'] = [{'heading': 'Bundled topic', 'paragraphs': [
-                    {'text': 'Bundled outline check', 'segment_ids': [state['segments'][0]['id']]}
-                ]}]
+                from videosummarizer.reading_products import source_key
+                state['reading_products'] = {'source_key': source_key(state), 'mindmap': [{
+                    'topic': 'Bundled topic', 'branches': [{'label': 'Method', 'children': [
+                        {'label': 'Bundled outline check', 'segment_ids': [state['segments'][0]['id']]}
+                    ]}]
+                }]}
                 outline = export_workspace(state, job, 'outline').read_text(encoding='utf-8')
                 if 'Bundled outline check' not in outline:
                     raise ValueError('Outline export is missing its source content')

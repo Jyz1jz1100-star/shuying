@@ -25,7 +25,7 @@ def raw_transcript(n=1):
 
 @pytest.fixture
 def project(tmp_path):
-    config = Settings(data_dir=tmp_path)
+    config = Settings(data_dir=tmp_path, reading_products=False)
     config.ensure_directories()
     db = Database(config.db_path)
     db.initialize()
@@ -45,6 +45,48 @@ def create(project, n=1):
     db.update_job('test',status='failed',title='测试讲义')
     atomic_json(directory/'transcript_raw.json',raw_transcript(n))
     return directory
+
+
+def test_desktop_products_edit_regenerate_and_export(project, monkeypatch):
+    from dataclasses import replace
+    from videosummarizer.reading_products import SummarySection, MapSection
+    create(project)
+    config, db, pipeline, _, client = project
+    assert Settings().reading_products is True
+    pipeline.config = replace(config, reading_products=True)
+    calls = []
+
+    class Writer:
+        def __init__(self, *args): pass
+        def ensure_model(self, *args): pass
+        def unload_model(self): pass
+        def _chat_model(self, schema, prompt):
+            calls.append(schema)
+            assert '术语表：' in prompt
+            if schema is SummarySection:
+                return schema(heading='硬件需求', takeaway='核对显存需求', points=[{'text':'无需大显存', 'segment_ids':['s000001']}])
+            assert schema is MapSection
+            return schema(topic='硬件', branches=[{'label':'显存', 'children':[{'label':'需求核对', 'segment_ids':['s000001']}]}])
+
+    monkeypatch.setattr('videosummarizer.learning.OllamaSummarizer', Writer)
+    pipeline.run('test')
+    result = client.get('/api/jobs/test/workspace').json()
+    assert result['summary'][0]['takeaway'] == '核对显存需求'
+    assert result['mindmap'][0]['topic'] == '硬件'
+    assert result['segments'][0]['text'] == raw_transcript()['segments'][0]['text']
+    assert '需求核对' in client.get('/api/jobs/test/export?format=outline').text
+    changed = client.patch('/api/jobs/test/segments/s000001', json={'revision':result['revision'], 'text':'新的显存要求'}).json()
+    assert changed['summary'] == [] and changed['mindmap'] == []
+    assert '原文已修改' in client.get('/api/jobs/test/export?format=outline').text
+    pipeline.run('test')
+    assert len(calls) == 4
+    revision = pipeline.state(db.get_job('test'))['revision']
+    changed = client.put('/api/jobs/test/glossary', json={'revision':revision, 'terms':['GPU = 图形处理器']}).json()
+    assert changed['summary'] == []
+    pipeline.run('test')
+    assert len(calls) == 6
+    pipeline.run('test')
+    assert len(calls) == 6  # Resume reuses both completed products, without another model call.
 
 
 def test_correction_direction_and_rejection():
@@ -104,8 +146,7 @@ def test_navigation_snapshot_and_outline_endpoint(project):
     exported = client.get('/api/jobs/test/export?format=outline')
     assert exported.status_code == 200
     assert exported.headers['content-type'].startswith('text/markdown')
-    assert '## 主题' in exported.text and '笔记内容' in exported.text
-    assert 't=0s' in exported.text
+    assert '导图尚未生成' in exported.text and '笔记内容' not in exported.text
 
 
 def test_library_does_not_hide_older_material(project):

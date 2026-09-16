@@ -230,15 +230,15 @@ export default function App() {
       <section className="hero" id="top">
         <div className="eyebrow"><span>URL</span><i /><span>字幕 / 语音</span><i /><span>DOCX</span></div>
         <h1>把一段视频，<br/><em>变成一份读得懂的文档。</em></h1>
-        <p className="hero-copy">把技术视频整理成可回查来源的讲义。点击引用核对原文，审阅术语修改，再导出 Markdown 或 Word。长任务中断后，可从已完成的内容继续。</p>
-        <div className="quick-start"><button type="button" onClick={()=>void openDemo()} disabled={busy || connection!=='online'}>先体验示例 · 无需模型和密钥</button><p>先读字幕也能搜索、校订并导出。需要提炼内容时，再生成讲义。</p></div>
+        <p className="hero-copy">把视频和录音变成全文转写、重点总结和思维导图。阅读原话、快速抓重点，或按主题梳理内容；点击引用即可核对来源。</p>
+        <div className="quick-start"><button type="button" onClick={()=>void openDemo()} disabled={busy || connection!=='online'}>先体验示例 · 无需模型和密钥</button><p>先读字幕也能搜索、校订并导出。需要提炼重点和梳理关系时，再生成总结和导图。</p></div>
         <form className="url-card" onSubmit={submit}>
           <fieldset className="profile-switch"><legend>这次想做什么？</legend>
             <label className={mode==='transcript'?'selected':''}><input type="radio" name="mode" checked={mode==='transcript'} onChange={()=>setMode('transcript')} /><span><b>阅读 / 转写字幕</b><small>无需总结模型 · 保留原文</small></span></label>
-            <label className={mode==='lecture'?'selected':''}><input type="radio" name="mode" checked={mode==='lecture'} onChange={()=>setMode('lecture')} /><span><b>生成可核查讲义</b><small>需要本地模型或 API</small></span></label>
+            <label className={mode==='lecture'?'selected':''}><input type="radio" name="mode" checked={mode==='lecture'} onChange={()=>setMode('lecture')} /><span><b>生成总结和导图</b><small>需要本地模型或 API</small></span></label>
           </fieldset>
           <label htmlFor="video-url">视频链接</label>
-          <div className="input-row"><div className="input-wrap"><span className="link-icon" aria-hidden="true">↗</span><input id="video-url" type="url" value={url} onChange={event=>setUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." required autoComplete="url" /></div><button type="submit" disabled={busy || connection==='offline'}>{busy?'正在提交…':mode==='transcript'?'获取字幕':'生成讲义'} <span aria-hidden="true">→</span></button></div>
+          <div className="input-row"><div className="input-wrap"><span className="link-icon" aria-hidden="true">↗</span><input id="video-url" type="url" value={url} onChange={event=>setUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." required autoComplete="url" /></div><button type="submit" disabled={busy || connection==='offline'}>{busy?'正在提交…':mode==='transcript'?'获取字幕':'生成总结和导图'} <span aria-hidden="true">→</span></button></div>
           <details className="input-options"><summary>语音转写设置（已有字幕可忽略）</summary>
           <div className="form-meta"><label htmlFor="transcription-device">需要语音转写时使用 <select id="transcription-device" value={device} onChange={event=>setDevice(event.target.value as 'gpu'|'cpu')}><option value="gpu">GPU（Vulkan，较快）</option><option value="cpu">CPU（兼容退路，较慢）</option></select></label><span>已有字幕时跳过语音转写</span></div>
           <fieldset className="profile-switch"><legend>语音转写模式</legend><label className={profile==='balanced'?'selected':''}><input type="radio" name="profile" value="balanced" checked={profile==='balanced'} onChange={()=>setProfile('balanced')} /><span><b>均衡模式</b><small>large-v3-turbo · 推荐</small></span></label><label className={profile==='accurate'?'selected':''}><input type="radio" name="profile" value="accurate" checked={profile==='accurate'} onChange={()=>setProfile('accurate')} /><span><b>高精度模式</b><small>large-v3 · 口音与复杂音频</small></span></label></fieldset>
@@ -260,7 +260,7 @@ export default function App() {
       <section className="process-strip" aria-label="处理流程">
         <article><b>01</b><div><strong>识别内容</strong><span>读取字幕或转写语音</span></div></article>
         <article><b>02</b><div><strong>校对字幕</strong><span>搜索、核对与人工修改</span></div></article>
-        <article><b>03</b><div><strong>按需生成</strong><span>配置模型后生成可核查讲义</span></div></article>
+        <article><b>03</b><div><strong>按需生成</strong><span>配置模型后生成总结和导图</span></div></article>
         <article><b>04</b><div><strong>生成文档</strong><span>导出六种通用文档与字幕格式</span></div></article>
       </section>
 

@@ -17,6 +17,7 @@ from .database import ACTIVE_STATUSES
 from .evidence import apply_edit, time_link
 from .exports import export_workspace
 from .learning import workspace_lock
+from .reading_products import visible_products
 from .llm_settings import LLMSettingsError
 from .config import resource_path
 from .security import validate_public_url, UnsafeUrlError
@@ -60,7 +61,7 @@ def router_for(database, pipeline, manager, live, settings):
         state = pipeline.state(job)
         directory = Path(job['job_dir'])
         files = media_files(directory)
-        return {**state, 'segments': [{**s, 'source_url': time_link(job['url'], s['start'])} for s in state['segments']],
+        return {**state, **visible_products(state), 'segments': [{**s, 'source_url': time_link(job['url'], s['start'])} for s in state['segments']],
                 'title': job.get('title') or '待处理材料', 'source_url': job['url'],
                 'error_message': job.get('error_message') or '',
                 'llm_provider': job.get('llm_provider', 'local'),

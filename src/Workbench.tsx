@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import TopicMap from './TopicMap';
+import TopicMap, { type MapSection } from './TopicMap';
 
 type Segment = { id:string; start:number; end:number; original:string; text:string; suggested:string; review:string; flags:string[]; source_url:string };
 type Paragraph = { text:string; segment_ids:string[]; review:string };
 type Block = { id:string; heading:string; segment_ids:string[]; stale:boolean; paragraphs:Paragraph[] };
 type StageStatus = string | { name?:string; label?:string; stage?:string; message?:string; status?:string };
 type Workspace = {
-  title:string; source_url:string; revision:number; glossary:string[]; segments:Segment[]; blocks:Block[];
+  title:string; source_url:string; revision:number; glossary:string[]; segments:Segment[]; blocks:Block[]; summary:Block[]; mindmap:MapSection[];
   error_message:string;
   media_available:boolean; media_bytes:number; busy:boolean; legacy:boolean; stage_status:StageStatus[];
 };
@@ -83,6 +83,17 @@ function normalizeWorkspace(raw:unknown):Workspace {
     glossary: asStringArray(data.glossary),
     segments: asArray(data.segments).map(normalizeSegment),
     blocks: asArray(data.blocks).map(normalizeBlock),
+    summary: asArray(data.summary).map((raw,index)=>{
+      const section=asRecord(raw), points=asArray(section.points).map(normalizeParagraph);
+      return normalizeBlock({heading:section.heading, paragraphs:[{text:section.takeaway,segment_ids:[...new Set(points.flatMap(p=>p.segment_ids))]},...points]},index);
+    }),
+    mindmap: asArray(data.mindmap).map(raw=>{
+      const section=asRecord(raw);
+      return {topic:asText(section.topic),branches:asArray(section.branches).map(raw=>{
+        const branch=asRecord(raw);
+        return {label:asText(branch.label),children:asArray(branch.children).map(raw=>{const leaf=asRecord(raw);return {label:asText(leaf.label),segment_ids:asStringArray(leaf.segment_ids)};})};
+      })};
+    }),
     media_available: data.media_available === true,
     media_bytes: asNumber(data.media_bytes),
     busy: data.busy === true,
@@ -149,7 +160,7 @@ async function readError(response:Response,fallback:string):Promise<string> {
 export default function Workbench({jobId,onClose,onConfigure,defaultProvider='local'}:{jobId:string;onClose:()=>void;onConfigure?:()=>void;defaultProvider?:'local'|'openai_compatible'}) {
   const [provider,setProvider] = useState(defaultProvider);
   const [readingCount,setReadingCount] = useState(200);
-  const [view,setView] = useState<'text'|'map'>('text');
+  const [view,setView] = useState<'text'|'summary'|'map'>('text');
   const [workspace,setWorkspace] = useState<Workspace|null>(null);
   const [loading,setLoading] = useState(true);
   const [offline,setOffline] = useState(false);
@@ -438,13 +449,13 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
         <>
           <div className="wb-toolbar">
             <div className="wb-toolbar-group">
-              <label>讲义模型 <select value={provider} disabled={writesDisabled} onChange={e=>setProvider(e.target.value as 'local'|'openai_compatible')}><option value="local">本地 Ollama</option><option value="openai_compatible">API（发送字幕给服务商）</option></select></label>
+              <label>AI 模型 <select value={provider} disabled={writesDisabled} onChange={e=>setProvider(e.target.value as 'local'|'openai_compatible')}><option value="local">本地 Ollama</option><option value="openai_compatible">API（发送字幕给服务商）</option></select></label>
               {onConfigure && <button type="button" className="wb-secondary" onClick={()=>{if ((!draftDirty && !glossaryDirty) || window.confirm('放弃未保存修改并前往模型设置？')) onConfigure();}}>配置模型</button>}
               <label className="wb-check">
                 <input type="checkbox" checked={proofread} disabled={writesDisabled} onChange={event => setProofread(event.target.checked)} />
                 <span>重新生成时校对字幕（含 SRT / 人工字幕）</span>
               </label>
-              <button type="button" className="wb-primary" disabled={writesDisabled || !segments.length} onClick={() => void regenerate()}>{regenerating ? '正在提交…' : workspace.blocks.length ? '更新讲义' : '生成讲义（需要模型）'}</button>
+              <button type="button" className="wb-primary" disabled={writesDisabled || !segments.length} onClick={() => void regenerate()}>{regenerating ? '正在提交…' : workspace.summary.length ? '更新总结和导图' : '生成总结和导图（需要模型）'}</button>
             </div>
             <div className="wb-toolbar-group">
               <span className="wb-export-label">导出</span>
@@ -458,18 +469,19 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
           <div className="wb-body">
             <section className="wb-lecture" aria-labelledby="wb-lecture-title">
               <div className="wb-panel-head">
-                <h3 id="wb-lecture-title">{workspace.blocks.length ? '讲义' : '字幕阅读稿'}</h3>
-                {workspace.blocks.length > 0 && <div className="wb-view-switch" aria-label="阅读方式">
-                  <button type="button" aria-pressed={view==='text'} onClick={()=>setView('text')}>正文</button>
-                  <button type="button" aria-pressed={view==='map'} onClick={()=>setView('map')}>结构导图</button>
+                <h3 id="wb-lecture-title">{{text:'全文转写',summary:'AI 总结',map:'思维导图'}[view]}</h3>
+                {<div className="wb-view-switch" aria-label="阅读方式">
+                  <button type="button" aria-pressed={view==='text'} onClick={()=>setView('text')}>全文转写</button>
+                  <button type="button" aria-pressed={view==='summary'} onClick={()=>setView('summary')}>AI 总结</button>
+                  <button type="button" aria-pressed={view==='map'} onClick={()=>setView('map')}>思维导图</button>
                 </div>}
-                <p className="wb-hint">{workspace.blocks.length ? '自动生成的草稿，请结合原字幕与原音频核实事实，引用不等于事实已验证。' : '未经模型改写。点击一段可校订原文，右侧可搜索；导出包含全部字幕。'}</p>
+                <p className="wb-hint">{view==='text' ? '全文转写与人工校订内容，点击一段可核对原话、编辑或回听。' : 'AI 生成内容，请结合引用核对。原文或术语修改后，需要更新总结和导图。'}</p>
               </div>
-              {view==='map' && workspace.blocks.length > 0
-                ? <TopicMap title={workspace.title} blocks={workspace.blocks} segmentIds={segmentIds} onSelect={id=>selectSegment(id,true)} exportHref={`/api/jobs/${encodeURIComponent(jobId)}/export?format=outline`} />
-                : workspace.blocks.length === 0
+              {view==='map'
+                ? <TopicMap title={workspace.title} sections={workspace.mindmap} segmentIds={segmentIds} onSelect={id=>selectSegment(id,true)} exportHref={`/api/jobs/${encodeURIComponent(jobId)}/export?format=outline`} />
+                : view==='text'
                 ? <div className="wb-reading">{!segments.length && <p className="wb-note">正在等待字幕。处理进度显示在上方。</p>}{segments.slice(0,readingCount).map(segment=><button type="button" key={segment.id} onClick={()=>selectSegment(segment.id,true)} className={`wb-reading-row${selectedId===segment.id?' selected':''}`}><time>{formatTime(segment.start)}</time><span>{segment.text}</span></button>)}{segments.length>readingCount && <button type="button" className="wb-secondary" onClick={()=>setReadingCount(n=>n+200)}>继续阅读（剩余 {segments.length-readingCount} 段）</button>}</div>
-                : workspace.blocks.map(block => (
+                : !workspace.summary.length ? <p className="wb-empty">尚未生成总结，或原文已修改。点击上方“生成总结和导图”即可，无需重新转写。</p> : workspace.summary.map(block => (
                   <article className="wb-block" key={block.id}>
                     <div className="wb-block-head">
                       <h4>{block.heading || '未命名章节'}</h4>
@@ -582,7 +594,7 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
                   {draftDirty && <p className="wb-dirty">有未保存的修改；后台自动刷新不会覆盖这些编辑。</p>}
                 </section>
               ) : (
-                <p className="wb-note">点击讲义中的引用或上方字幕条目，即可编辑对应原文。</p>
+                <p className="wb-note">点击总结或导图中的引用或上方字幕条目，即可编辑对应原文。</p>
               )}
 
               <section className="wb-glossary" aria-labelledby="wb-glossary-title">
