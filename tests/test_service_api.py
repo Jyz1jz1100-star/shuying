@@ -199,3 +199,19 @@ def test_link_job_is_owned_and_processes_with_existing_pipeline(service, monkeyp
     assert client.get('/v1/jobs/'+job_id, headers=h).json()['status'] == 'completed'
     assert client.get('/v1/jobs/'+job_id+'/result', headers=h).json()['segments'][0]['text'] == 'Link transcript'
     assert client.delete('/v1/jobs/'+job_id, headers=h).status_code == 204
+
+
+def test_gpu_default_and_explicit_cpu_for_both_inputs(service, monkeypatch):
+    app, client, _ = service
+    monkeypatch.setattr('videosummarizer.video_links.validate_public_url', lambda value: value)
+    for device in (None, 'cpu'):
+        params = {'filename': 'test.srt'}
+        body = {'url': 'https://youtu.be/BaW_jenozKc'}
+        if device:
+            params['device'] = device
+            body['device'] = device
+        responses = [client.post('/v1/jobs', params=params, content=SRT, headers=headers()),
+                     client.post('/v1/jobs/link', json=body, headers={'Authorization': 'Bearer '+TOKEN})]
+        for response in responses:
+            assert response.status_code == 202
+            assert app.state.database.get_job(response.json()['id'])['transcription_device'] == (device or 'gpu')

@@ -42,7 +42,7 @@ curl --fail-with-body "$SHUYING_URL/v1/jobs/$JOB_ID/export?format=txt" \
 | --- | --- |
 | `GET /healthz` | 服务存活检查，不需要密钥 |
 | `GET /v1/capabilities` | 查询实际文件、时长、队列和请求限额 |
-| `POST /v1/jobs?filename=lesson.mp4` | 上传文件，默认仅转写；`mode=lecture` 加做笔记，`device=cpu` 或 `gpu` 选择转写设备 |
+| `POST /v1/jobs?filename=lesson.mp4` | 上传文件，默认用 GPU 转写；`mode=lecture` 加做笔记，`device=cpu` 可显式选择 CPU |
 | `POST /v1/jobs/link` | JSON 请求体 `{"url":"视频链接"}`，创建链接任务；支持 B站、b23.tv 短链及 YouTube 单视频，也可粘贴分享文字 |
 | `GET /v1/jobs?limit=20&offset=0` | 分页查询当前密钥的任务 |
 | `GET /v1/jobs/{id}` | 读取状态和进度 |

@@ -84,7 +84,7 @@ class NotesRequest(BaseModel):
 class LinkRequest(BaseModel):
     url: str = Field(min_length=1, max_length=4096)
     mode: Literal['transcript', 'lecture'] = 'transcript'
-    device: Literal['cpu', 'gpu'] = 'cpu'
+    device: Literal['cpu', 'gpu'] = 'gpu'
 
 
 def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = True,
@@ -227,7 +227,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
               openapi_extra={'requestBody': {'required': True, 'content': {'application/octet-stream': {'schema': {'type': 'string', 'format': 'binary'}}}}})
     async def upload(request: Request, filename: str = Query(min_length=1, max_length=180),
                      mode: Literal['transcript', 'lecture'] = 'transcript',
-                     device: Literal['cpu', 'gpu'] = 'cpu', key_id: str = Depends(authenticate)):
+                     device: Literal['cpu', 'gpu'] = 'gpu', key_id: str = Depends(authenticate)):
         if '/' in filename or '\\' in filename or ':' in filename or any(ord(c) < 32 for c in filename):
             raise HTTPException(400, 'filename must be a plain file name')
         if request.headers.get('content-type', '').split(';')[0].lower() != 'application/octet-stream':
