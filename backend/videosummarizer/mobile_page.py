@@ -5,13 +5,14 @@ HTML = r'''<!doctype html>
 <meta name="theme-color" content="#153bdb"><title>述影 · 随手转文字</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#14233b;background:#f3f6fc;font-size:16px}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}textarea{width:100%;resize:vertical;min-height:88px;padding:14px;border:1px solid #c8d3e5;border-radius:12px;background:white}button,.pick{min-height:48px;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;background:#153bdb;color:white;font-weight:650}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible,.pick:focus-within{outline:3px solid #759aff;outline-offset:3px}.secondary{background:#eaf0fc;color:#213e76}.quiet{background:transparent;color:#52617a;padding:10px}.danger{color:#a32b32;background:#fff0f1}[hidden]{display:none!important}main{max-width:780px;margin:auto;padding:24px 18px 60px;padding-bottom:max(60px,env(safe-area-inset-bottom))}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}.brand{font-size:25px;font-weight:800;letter-spacing:.04em}.brand small{display:block;color:#61718b;font-size:14px;font-weight:400;letter-spacing:0;margin-top:3px}h1{font-size:28px;margin:0 0 12px;line-height:1.4}h2{font-size:20px;margin:0}p{line-height:1.7}.muted{color:#61718b;font-size:14px}.panel{background:white;border:1px solid #e2e8f3;border-radius:20px;padding:24px;margin-bottom:20px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.stack{display:grid;gap:14px}input[type=password]{width:100%;padding:14px;border:1px solid #c8d3e5;border-radius:12px;background:#fff}label{line-height:1.7}.pick{display:flex;position:relative;align-items:center;justify-content:center;min-height:100px;text-align:center;background:#eef3ff;color:#153bdb;border:1px dashed #92aaf8}.pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.pick:has(input:disabled){opacity:.5}#filename{overflow-wrap:anywhere;margin:0}progress{width:100%;height:10px;accent-color:#153bdb}#message{position:sticky;top:10px;z-index:2;background:#fff4dc;color:#664b08;border-radius:12px;padding:14px;line-height:1.6;margin-bottom:16px;white-space:pre-wrap}#jobs{display:grid;gap:10px;margin-top:14px}.job{width:100%;text-align:left;display:flex;justify-content:space-between;gap:14px;background:white;color:#14233b;border:1px solid #e2e8f3;padding:18px}.job .name{min-width:0;overflow-wrap:anywhere}.job .status{font-size:14px;white-space:nowrap;color:#5d6f8d;font-weight:400}.job[aria-current=true]{border-color:#153bdb;background:#eef3ff}#detail{margin-top:20px}#detail-title{overflow-wrap:anywhere}#transcript{max-height:62vh;overflow:auto;border-top:1px solid #e2e8f3;margin-top:20px}.segment{padding:14px 0;border-bottom:1px solid #edf0f5}.segment time{font-size:13px;color:#61718b;display:block;margin-bottom:5px}.segment p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}select{max-width:100%;padding:12px;border:1px solid #c8d3e5;border-radius:12px;background:white;color:#14233b}footer{margin-top:30px;color:#61718b;font-size:14px;line-height:1.8}footer a{color:#61718b}#upload{width:100%}#empty{padding:18px 0}details{font-size:14px;color:#61718b}summary{cursor:pointer;padding:8px 0}#upload-state{font-size:14px;color:#153bdb}#job-state{line-height:1.6;color:#61718b}@media(max-width:480px){main{padding:20px 14px 40px}.panel{padding:20px 16px;border-radius:16px}h1{font-size:25px}.job{padding:16px 12px}.row.actions>*{flex:1}header{margin-bottom:20px}}
+ .view-switch{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.view-switch button{flex:1;background:#eaf0fc;color:#213e76;white-space:nowrap}.view-switch button[aria-pressed="true"]{background:#153bdb;color:white}.reading p{white-space:pre-wrap;overflow-wrap:anywhere}.map-root{padding:14px;border-radius:12px;background:#153bdb;color:white;margin:16px 0}.map-branch{border-left:3px solid #92aaf8;margin:14px 0 14px 8px;padding:0 0 0 16px;color:#14233b;font-size:16px}.map-branch summary{font-weight:700}.map-node{border:1px solid #dce5f5;border-radius:12px;padding:14px;margin:10px 0;background:#f6f8ff}.source-ref{font-size:14px;text-align:left}.warning{color:#9b4a08}
 </style><script src="/mobile.js" defer></script></head>
 <body><main><header><div class="brand">述影<small>视频、录音，随手转文字</small></div><button id="logout" class="quiet" hidden>退出</button></header>
 <div id="message" role="status" aria-live="polite" hidden></div>
 <section id="login" class="panel"><h1>在手机上接着用</h1><p class="muted">输入访问密钥，连接你的述影服务。</p><form id="login-form" class="stack"><label for="key">访问密钥</label><input id="key" type="password" placeholder="粘贴访问密钥" autocomplete="off" autocapitalize="none" spellcheck="false" required><button id="connect" type="submit">连接述影</button></form><p class="muted">密钥只在当前标签页中保留，退出后清除。</p><details><summary>密钥在哪里？</summary><p>向服务管理者获取。如果服务装在自己的电脑上，在安装目录的 client-key.json 中复制 api_key 对应的值；不要复制整个文件。</p></details></section>
-<div id="app" hidden><section class="panel stack"><div><h1>把声音变成文字</h1><p class="muted" id="limits">选择手机里的视频、录音或字幕。</p></div><form id="link-form" class="stack"><label for="video-link">粘贴视频链接</label><textarea id="video-link" placeholder="B站 / YouTube 链接，也可以粘贴整段分享文字" maxlength="4096" required></textarea><button id="import-link" type="submit">从链接转文字</button><span class="muted">支持公开视频和 B站短链接，不支持登录、付费内容或合集。</span></form><p class="muted">或者，上传手机里的文件</p><label class="pick"><span>＋ 选择视频、录音或字幕</span><input id="file" type="file" accept=".mp4,.mkv,.webm,.mov,.mp3,.wav,.m4a,.flac,.srt,.vtt" aria-label="选择视频、录音或字幕"></label><p id="filename" class="muted">尚未选择文件</p><button id="upload" disabled>开始转文字</button><div id="upload-progress" hidden><progress id="upload-bar" max="100" value="0" aria-label="上传进度"></progress><p id="upload-state"></p></div></section>
+<div id="app" hidden><section class="panel stack"><div><h1>把声音变成文字</h1><p class="muted" id="limits">选择手机里的视频、录音或字幕。</p></div><label for="processing-mode">生成内容</label><select id="processing-mode"><option value="lecture">文字＋AI 总结＋思维导图</option><option value="transcript">仅转文字</option></select><p class="muted" id="notes-info">AI 总结完成后自动生成结构导图，无需额外调用模型。</p><form id="link-form" class="stack"><label for="video-link">粘贴视频链接</label><textarea id="video-link" placeholder="B站 / YouTube 链接，也可以粘贴整段分享文字" maxlength="4096" required></textarea><button id="import-link" type="submit">开始处理链接</button><span class="muted">支持公开视频和 B站短链接，不支持登录、付费内容或合集。</span></form><p class="muted">或者，上传手机里的文件</p><label class="pick"><span>＋ 选择视频、录音或字幕</span><input id="file" type="file" accept=".mp4,.mkv,.webm,.mov,.mp3,.wav,.m4a,.flac,.srt,.vtt" aria-label="选择视频、录音或字幕"></label><p id="filename" class="muted">尚未选择文件</p><button id="upload" disabled>开始处理文件</button><div id="upload-progress" hidden><progress id="upload-bar" max="100" value="0" aria-label="上传进度"></progress><p id="upload-state"></p></div></section>
 <section aria-labelledby="materials-title"><div class="row between"><h2 id="materials-title">我的材料</h2><button id="refresh" class="quiet">刷新</button></div><p id="empty" class="muted">还没有材料，选一个文件开始吧。</p><div id="jobs"></div><button id="more" class="secondary" hidden>查看更多</button></section>
-<section id="detail" class="panel" hidden><h2 id="detail-title"></h2><p id="job-state" aria-live="polite"></p><div class="row actions"><button id="cancel" class="secondary" hidden>取消处理</button><button id="retry" class="secondary" hidden>重新处理</button></div><div id="result-actions" hidden><div class="row actions"><select id="format" aria-label="下载格式"><option value="docx">Word 文稿</option><option value="txt">纯文本</option><option value="md">Markdown</option><option value="srt">SRT 字幕</option><option value="vtt">VTT 字幕</option><option value="outline">笔记大纲</option><option value="json">JSON 数据</option></select><button id="download">下载文稿</button></div><p><button id="notes" class="secondary">整理成 AI 笔记</button></p><p class="muted" id="notes-info">笔记由服务电脑配置的 AI 生成，完成后也可下载。重要内容请核对原文。</p></div><div id="transcript"></div><p><button id="delete" class="quiet danger" hidden>删除这份材料</button></p></section></div>
+<section id="detail" class="panel" hidden><h2 id="detail-title"></h2><p id="job-state" aria-live="polite"></p><div class="row actions"><button id="cancel" class="secondary" hidden>取消处理</button><button id="retry" class="secondary" hidden>重新处理</button></div><div id="result-actions" hidden><div class="row actions"><select id="format" aria-label="下载格式"><option value="docx">Word 文稿</option><option value="txt">纯文本</option><option value="md">Markdown</option><option value="srt">SRT 字幕</option><option value="vtt">VTT 字幕</option><option value="outline">笔记大纲</option><option value="json">JSON 数据</option></select><button id="download">下载文稿</button></div><p><button id="notes" class="secondary">整理成 AI 笔记</button></p></div><nav id="views" class="view-switch" aria-label="查看结果" hidden><button id="view-original" aria-pressed="true">原文</button><button id="view-summary" aria-pressed="false">AI 总结</button><button id="view-map" aria-pressed="false">思维导图</button></nav><div id="summary-content" class="reading" hidden></div><div id="map-content" class="reading" hidden></div><div id="transcript"></div><p><button id="delete" class="quiet danger" hidden>删除这份材料</button></p></section></div>
 <footer>处理在服务电脑上进行。电脑需要保持联网、不休眠。<br><a href="/docs">开发者接口文档</a></footer></main></body></html>'''
 
 JS = r'''"use strict";
@@ -28,7 +29,7 @@ function logout() {
   generation++; token=""; storage(""); uploadRequest?.abort(); uploadRequest=null; busy=false;
   selected=null; jobs=[]; resultFor=""; $("key").value=""; $("file").value=""; $("video-link").value="";
   $("app").hidden=true; $("logout").hidden=true; $("login").hidden=false;
-  $("jobs").replaceChildren(); $("transcript").replaceChildren(); $("detail").hidden=true;
+  $("jobs").replaceChildren(); clearResults(); $("detail").hidden=true;
   $("upload-progress").hidden=true; $("file").disabled=false; $("filename").textContent="尚未选择文件"; $("upload").disabled=true;
 }
 function failure(status, retryAfter) {
@@ -64,14 +65,14 @@ $("login-form").addEventListener("submit",event=>{event.preventDefault(); task($
 $("logout").onclick=()=>{logout();message();};
 $("link-form").addEventListener("submit",event=>{event.preventDefault();task($("import-link"),async()=>{
   if(busy)throw new Error("请先等待当前文件上传完成。");
-  const response=await api("/v1/jobs/link",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:$("video-link").value})});
+  const response=await api("/v1/jobs/link",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:$("video-link").value,mode:$("processing-mode").value})});
   const job=await response.json();$("video-link").value="";selected=job;resultFor="";await refresh();await showJob(job);$("detail").scrollIntoView({behavior:"smooth",block:"start"});
 });});
 $("file").onchange=()=>{const file=$("file").files[0];$("filename").textContent=file ? `${file.name} · ${(file.size/1048576).toFixed(1)} MB` : "尚未选择文件";$("upload").disabled=!file;};
 function upload(file) {
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest(); uploadRequest=xhr;
-    xhr.open("POST","/v1/jobs?filename="+encodeURIComponent(file.name));
+    xhr.open("POST","/v1/jobs?filename="+encodeURIComponent(file.name)+"&mode="+$("processing-mode").value);
     xhr.setRequestHeader("Authorization","Bearer "+token);xhr.setRequestHeader("Content-Type","application/octet-stream");xhr.timeout=150000;
     xhr.upload.onprogress=event=>{if(event.lengthComputable){const percent=Math.round(event.loaded/event.total*100);$("upload-bar").value=percent;$("upload-state").textContent=percent===100?"上传完成，正在检查文件…":`正在上传 ${percent}% · 请保持页面打开`;}};
     xhr.onload=()=>{uploadRequest=null;if(xhr.status===202){try{resolve(JSON.parse(xhr.responseText));}catch{reject(new Error("返回数据异常，请刷新材料列表确认上传结果。"));}}else reject(failure(xhr.status,xhr.getResponseHeader("Retry-After")));};
@@ -104,23 +105,52 @@ async function refresh() {
   }finally{refreshing=false;}
 }
 function timestamp(seconds){const value=Math.max(0,Math.floor(Number(seconds)||0));return `${Math.floor(value/60)}:${String(value%60).padStart(2,"0")}`;}
+function clearResults(){for(const id of ["transcript","summary-content","map-content"])$(id).replaceChildren();$("views").hidden=true;switchView("original");}
+function switchView(view){
+  for(const [name,id] of [["original","transcript"],["summary","summary-content"],["map","map-content"]]){
+    $(id).hidden=name!==view;$("view-"+name).setAttribute("aria-pressed",String(name===view));
+  }
+}
+for(const view of ["original","summary","map"])$("view-"+view).onclick=()=>switchView(view);
+function sourceReference(paragraph,segments){
+  const refs=(paragraph.segment_ids||[]).map(id=>segments.find(s=>s.id===id)).filter(Boolean);
+  const button=document.createElement("button");button.className="quiet source-ref";
+  button.textContent=refs.length?"查看原文 · "+refs.map(s=>timestamp(s.start)).join("、"):"来源待确认";
+  button.disabled=!refs.length;
+  if(refs.length)button.onclick=()=>{switchView("original");document.getElementById("segment-"+refs[0].id)?.scrollIntoView({behavior:"smooth",block:"center"});};
+  return button;
+}
+function renderNotes(data,job){
+  const summary=$("summary-content"),map=$("map-content");
+  if(!data.blocks?.length){for(const target of [summary,map]){const hint=document.createElement("p");hint.textContent="还没有 AI 总结。点击上方“生成 AI 总结和导图”，无需重新转写。";target.append(hint);}return;}
+  const root=document.createElement("h3");root.className="map-root";root.textContent=job.title||"内容结构";map.append(root);
+  const description=document.createElement("p");description.className="muted";description.textContent="由同一份 AI 总结组织成可折叠导图，点击原文可核对。";map.append(description);
+  for(const block of data.blocks){
+    const heading=document.createElement("h3");heading.textContent=block.heading;summary.append(heading);
+    const branch=document.createElement("details");branch.className="map-branch";branch.open=true;
+    const title=document.createElement("summary");title.textContent=block.heading;branch.append(title);
+    if(block.stale){for(const target of [summary,branch]){const warning=document.createElement("p");warning.className="warning";warning.textContent="原文已修改，这部分总结需要重新生成。";target.append(warning);}}
+    for(const paragraph of block.paragraphs||[]){
+      const text=document.createElement("p");text.textContent=paragraph.text;summary.append(text,sourceReference(paragraph,data.segments));
+      const node=document.createElement("div");node.className="map-node";const nodeText=document.createElement("p");nodeText.textContent=paragraph.text;node.append(nodeText,sourceReference(paragraph,data.segments));
+      if(paragraph.review==="unverified"){for(const target of [summary,node]){const warning=document.createElement("p");warning.className="warning";warning.textContent="来源待核实";target.append(warning);}}
+      branch.append(node);
+    }
+    map.append(branch);
+  }
+}
 async function showJob(job){
   selected=job;$("detail").hidden=false;$("detail-title").textContent=job.title||"未命名材料";
   $("job-state").textContent=label(job)+(job.status==="failed"?"。可以重新处理；若仍失败，请联系服务管理者。":active(job)?"。进度会自动更新，你可以先做别的事。":"");
   $("cancel").hidden=!active(job);$("retry").hidden=!["failed","canceled"].includes(job.status);$("delete").hidden=active(job);
-  if(resultFor!==job.id){$("transcript").replaceChildren();$("result-actions").hidden=true;}
+  if(resultFor!==job.id){clearResults();$("result-actions").hidden=true;}
   if(job.status==="completed"&&resultFor!==job.id){
     const session=generation;const data=await(await api(`/v1/jobs/${job.id}/result`)).json();if(session!==generation||selected?.id!==job.id)return;
     $("transcript").replaceChildren();const fragment=document.createDocumentFragment();
-    if(data.blocks?.length){const notes=document.createElement("details");notes.open=true;const summary=document.createElement("summary");summary.textContent="AI 笔记 · 请核对原文";notes.append(summary);
-      for(const block of data.blocks){const heading=document.createElement("h3");heading.textContent=block.heading;notes.append(heading);
-        if(block.stale){const warning=document.createElement("p");warning.textContent="原文已修改，这节笔记需要重新整理。";notes.append(warning);}
-        for(const paragraph of block.paragraphs||[]){const text=document.createElement("p");text.textContent=paragraph.text;notes.append(text);
-          const refs=(paragraph.segment_ids||[]).map(id=>data.segments.find(s=>s.id===id)).filter(Boolean);const source=document.createElement("p");source.className="muted";source.textContent=refs.length?"原文 "+refs.map(s=>timestamp(s.start)).join("、"):"来源待确认";notes.append(source);}}
-      fragment.append(notes);}
-    for(const segment of data.segments){const item=document.createElement("div");item.className="segment";const time=document.createElement("time");time.textContent=timestamp(segment.start);const text=document.createElement("p");text.textContent=segment.text;item.append(time,text);fragment.append(item);}
-    $("transcript").append(fragment);$("result-actions").hidden=false;resultFor=job.id;
-    $("notes").textContent=job.processing_mode==="lecture"?"重新整理 AI 笔记":"整理成 AI 笔记";
+    renderNotes(data,job);
+    for(const segment of data.segments){const item=document.createElement("div");item.className="segment";item.id="segment-"+segment.id;const time=document.createElement("time");time.textContent=timestamp(segment.start);const text=document.createElement("p");text.textContent=segment.text;item.append(time,text);fragment.append(item);}
+    $("transcript").append(fragment);$("result-actions").hidden=false;$("views").hidden=false;resultFor=job.id;switchView(data.blocks?.length?"summary":"original");
+    $("notes").textContent=job.processing_mode==="lecture"?"重新生成总结和导图":"生成 AI 总结和导图";
   }
 }
 $("refresh").onclick=()=>task($("refresh"),refresh);
@@ -132,7 +162,7 @@ for(const action of ["cancel","retry","notes"]){$(action).onclick=()=>task($(act
 });}
 $("delete").onclick=()=>task($("delete"),async()=>{
   if(!selected||!confirm("删除这份材料及其文字、笔记？此操作无法撤销。"))return;
-  await api(`/v1/jobs/${selected.id}`,{method:"DELETE"});selected=null;resultFor="";$("detail").hidden=true;$("transcript").replaceChildren();await refresh();
+  await api(`/v1/jobs/${selected.id}`,{method:"DELETE"});selected=null;resultFor="";$("detail").hidden=true;clearResults();await refresh();
 });
 $("download").onclick=()=>task($("download"),async()=>{
   if(!selected)return;const job=selected;const format=$("format").value;

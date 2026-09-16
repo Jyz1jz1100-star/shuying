@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add Original / AI Summary / Mind Map views on phones, with collapsible source-linked outlines and a full-processing option before upload or link import.
+
 - Import public Bilibili and YouTube single-video links from the phone homepage, including Bilibili short links and pasted share text; retain client isolation and processing limits.
 
 - Use the operator-configured local or online model for API notes, including transcripts created before changing the default; show online text-processing disclosure on the phone page.
