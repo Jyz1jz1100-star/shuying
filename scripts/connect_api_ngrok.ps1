@@ -1,7 +1,27 @@
-param([string]$InstallDir = "$env:LOCALAPPDATA\ShuyingService")
+param([string]$InstallDir = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'ShuyingService'))
 $ErrorActionPreference = 'Stop'
 $configPath = Join-Path $InstallDir 'ngrok.yml'
-if (!(Test-Path (Join-Path $InstallDir 'service-runtime.json'))) { throw 'Install the API service first.' }
+if (!(Test-Path -LiteralPath (Join-Path $InstallDir 'service-runtime.json'))) {
+    Write-Host "No installation visible in this Windows session. Installing into $InstallDir ..."
+    & (Join-Path $PSScriptRoot 'install_api_service.ps1') -InstallDirectory $InstallDir -NoStart
+    if (!(Test-Path -LiteralPath (Join-Path $InstallDir 'service-runtime.json'))) {
+        throw 'Installation did not create a service configuration. Token entry has not started.'
+    }
+}
+$agentPath = Join-Path $InstallDir 'tools\ngrok.exe'
+if (!(Test-Path -LiteralPath $agentPath)) {
+    Write-Host 'Downloading the official ngrok Windows agent...'
+    $toolsDir = Join-Path $InstallDir 'tools'
+    New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+    $archive = Join-Path $toolsDir 'ngrok.zip'
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://bin.ngrok.com/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile $archive
+    Expand-Archive -LiteralPath $archive -DestinationPath $toolsDir -Force
+}
+$signature = Get-AuthenticodeSignature -LiteralPath $agentPath
+if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O="?ngrok, Inc\.') {
+    throw 'ngrok signature validation failed. No token has been requested and the agent has not been started.'
+}
 if (Test-Path $configPath) { throw 'ngrok.yml already exists. Edit the existing configuration locally.' }
 Write-Host 'Copy your personal authtoken from the ngrok dashboard, paste below, then press Enter.'
 Write-Host 'The token is hidden and saved only in the restricted service directory.'

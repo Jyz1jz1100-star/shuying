@@ -1,6 +1,7 @@
 param(
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'ShuyingService'),
-    [int]$Port = 8766
+    [int]$Port = 8766,
+    [switch]$NoStart
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -32,14 +33,18 @@ if ($LASTEXITCODE -ne 0) { throw 'API key initialization failed.' }
 @{ python=$python; port=$Port; origins=@() } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $installRoot 'service-runtime.json') -Encoding utf8
 $startup = [Environment]::GetFolderPath('Startup')
 $shortcutPath = Join-Path $startup 'Shuying API.lnk'
-if (Test-Path -LiteralPath $shortcutPath) { throw 'Startup shortcut already exists.' }
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
+if ((Test-Path -LiteralPath $shortcutPath) -and $shortcut.TargetPath -ne $pythonw) {
+    throw 'A startup shortcut for another installation exists; it has not been replaced.'
+}
 $shortcut.TargetPath = $pythonw
 $shortcut.Arguments = '"' + (Join-Path $installRoot 'service_supervisor.py') + '" "' + (Join-Path $installRoot 'service-runtime.json') + '"'
 $shortcut.WorkingDirectory = $installRoot
 $shortcut.WindowStyle = 7
 $shortcut.Save()
-Start-Process -FilePath $pythonw -ArgumentList $shortcut.Arguments -WorkingDirectory $installRoot -WindowStyle Hidden | Out-Null
+if (-not $NoStart) {
+    Start-Process -FilePath $pythonw -ArgumentList $shortcut.Arguments -WorkingDirectory $installRoot -WindowStyle Hidden | Out-Null
+}
 Write-Output "API supervisor installed for this user's session and future logins: $installRoot"
 Write-Output "Local endpoint: http://127.0.0.1:$Port ; API token stored in client-key.json (not printed)."
