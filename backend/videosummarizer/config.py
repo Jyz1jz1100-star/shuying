@@ -30,6 +30,7 @@ class Settings:
     cpu_threads: int = 6
     transcription_chunk_seconds: int = 90
     transcription_overlap_seconds: float = 1.5
+    restricted_video_links: bool = False
 
     @property
     def db_path(self) -> Path:

@@ -124,14 +124,32 @@ class Pipeline:
         finally:
             summarizer.unload_model()
 
+    def _video_downloader(self, options):
+        from yt_dlp import YoutubeDL
+        if not self.config.restricted_video_links:
+            return YoutubeDL(options)
+
+        class PublicVideoDownloader(YoutubeDL):
+            def urlopen(self, request):
+                target = request if isinstance(request, str) else request.url
+                validate_public_url(target)
+                return super().urlopen(request)
+
+        return PublicVideoDownloader({**options, 'allowed_extractors': ['(?i)youtube$', '(?i)bilibili$'],
+                                      'enable_file_urls': False, 'hls_prefer_native': True,
+                                      'proxy': '', 'cachedir': False})
+
     def _probe(self, job_id: str, url: str) -> dict[str, Any]:
+        if self.config.restricted_video_links:
+            from .video_links import normalize_video_link
+            url = normalize_video_link(url, resolve_short=False)
         validate_public_url(url)
         self._update(job_id, "probing", 5, "正在读取视频标题、作者和时长")
         try:
             from yt_dlp import YoutubeDL
             from yt_dlp.utils import DownloadError
 
-            with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True, "socket_timeout": 30, "retries": 2}) as ydl:
+            with self._video_downloader({"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True, "socket_timeout": 30, "retries": 2}) as ydl:
                 raw = ydl.extract_info(url, download=False)
                 info = ydl.sanitize_info(raw)
         except Exception as exc:
@@ -149,7 +167,7 @@ class Pipeline:
         if duration <= 0:
             raise PipelineError("NO_DURATION", "无法确认视频时长，已为安全起见停止处理")
         if duration > self.config.max_duration_seconds:
-            raise PipelineError("DURATION_LIMIT", "视频超过 2 小时限制")
+            raise PipelineError("DURATION_LIMIT", "视频超过当前服务时长限制")
         final_url = info.get("webpage_url")
         if final_url:
             validate_public_url(final_url)
@@ -184,7 +202,7 @@ class Pipeline:
                 "writesubtitles": True, "writeautomaticsub": False, "subtitleslangs": [language],
                 "subtitlesformat": "vtt/srt/best", "outtmpl": template, "socket_timeout": 30,
             }
-            with YoutubeDL(options) as ydl:
+            with self._video_downloader(options) as ydl:
                 ydl.download([url])
             candidates = sorted([path for path in job_dir.glob("subtitle*") if path.suffix.lower() in {".vtt", ".srt"}])
             if not candidates:
@@ -207,7 +225,7 @@ class Pipeline:
                     total = payload.get("total_bytes") or payload.get("total_bytes_estimate")
                     downloaded = payload.get("downloaded_bytes") or 0
                     if downloaded > self.config.max_download_bytes:
-                        raise PipelineError("DOWNLOAD_LIMIT", "下载数据超过 2GB 限制")
+                        raise PipelineError("DOWNLOAD_LIMIT", "下载数据超过当前服务大小限制")
                     if total:
                         self._update(job_id, "downloading", 24 + int(12 * min(1, downloaded / total)), f"正在下载音轨 {int(downloaded/total*100)}%")
 
@@ -216,7 +234,7 @@ class Pipeline:
                 "quiet": True, "no_warnings": True, "socket_timeout": 30, "retries": 2,
                 "max_filesize": self.config.max_download_bytes, "progress_hooks": [hook],
             }
-            with YoutubeDL(options) as ydl:
+            with self._video_downloader(options) as ydl:
                 ydl.download([url])
         except JobCancelled:
             raise

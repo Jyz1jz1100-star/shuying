@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Import public Bilibili and YouTube single-video links from the phone homepage, including Bilibili short links and pasted share text; retain client isolation and processing limits.
+
 - Use the operator-configured local or online model for API notes, including transcripts created before changing the default; show online text-processing disclosure on the phone page.
 
 - Add a phone-friendly homepage for connecting with a key, uploading files, following progress, reading transcripts and notes, and downloading documents.

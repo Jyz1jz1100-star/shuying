@@ -43,7 +43,7 @@ def test_auth_and_no_desktop_exposure(service):
     schema = client.get('/openapi.json').json()
     assert schema['paths']['/v1/jobs']['post']['security']
     assert 'application/octet-stream' in schema['paths']['/v1/jobs']['post']['requestBody']['content']
-    assert client.get('/v1/capabilities', headers=headers()).json()['url_import'] is False
+    assert client.get('/v1/capabilities', headers=headers()).json()['url_import'] is True
     registry.write_text('{"keys": []}')
     assert client.get('/v1/jobs', headers=headers()).status_code == 401
 
@@ -178,3 +178,24 @@ def test_notes_uses_operator_default_even_for_old_local_job(service, monkeypatch
     response = client.post('/v1/jobs?filename=example.srt&mode=lecture', headers=headers(), content=SRT)
     assert response.status_code == 202
     assert app.state.database.get_job(response.json()['id'])['llm_provider'] == 'openai_compatible'
+
+
+def test_link_job_is_owned_and_processes_with_existing_pipeline(service, monkeypatch):
+    from videosummarizer.schemas import Transcript, TranscriptSegment
+    app, client, _ = service
+    monkeypatch.setattr('videosummarizer.video_links.validate_public_url', lambda value: value)
+    body = {'url': 'https://youtu.be/BaW_jenozKc'}
+    assert client.post('/v1/jobs/link', json=body).status_code == 401
+    h = {'Authorization': 'Bearer '+TOKEN}
+    assert client.post('/v1/jobs/link', json={'url':'http://127.0.0.1'}, headers=h).status_code == 400
+    response = client.post('/v1/jobs/link', json=body, headers=h)
+    assert response.status_code == 202
+    job_id = response.json()['id']
+    assert app.state.database.get_job(job_id)['url'] == 'https://www.youtube.com/watch?v=BaW_jenozKc'
+    assert client.get('/v1/jobs/'+job_id, headers=headers(OTHER)).status_code == 404
+    monkeypatch.setattr(app.state.pipeline, '_probe', lambda *a: {'title':'Test video','duration':10,'extractor':'youtube'})
+    monkeypatch.setattr(app.state.pipeline, '_subtitle_transcript', lambda *a: Transcript(language='en',source='human_subtitles',segments=[TranscriptSegment(start=0,end=2,text='Link transcript')]))
+    app.state.pipeline.run(job_id)
+    assert client.get('/v1/jobs/'+job_id, headers=h).json()['status'] == 'completed'
+    assert client.get('/v1/jobs/'+job_id+'/result', headers=h).json()['segments'][0]['text'] == 'Link transcript'
+    assert client.delete('/v1/jobs/'+job_id, headers=h).status_code == 204

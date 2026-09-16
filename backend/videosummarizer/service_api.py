@@ -9,6 +9,8 @@ import logging
 import shutil
 import threading
 import time
+import uuid
+from dataclasses import replace
 from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,7 +23,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from .config import Settings
 from .database import ACTIVE_STATUSES, Database
@@ -78,6 +81,12 @@ class NotesRequest(BaseModel):
     proofread: bool = False
 
 
+class LinkRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=4096)
+    mode: Literal['transcript', 'lecture'] = 'transcript'
+    device: Literal['cpu', 'gpu'] = 'cpu'
+
+
 def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = True,
                    allowed_origins: tuple[str, ...] = (), max_jobs: int = 50,
                    max_active: int = 4, requests_per_minute: int = 120) -> FastAPI:
@@ -88,7 +97,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
         connection.execute('CREATE TABLE IF NOT EXISTS api_owners (job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE, key_id TEXT NOT NULL)')
         connection.execute('CREATE INDEX IF NOT EXISTS api_owners_key ON api_owners(key_id)')
     store = LLMSettingsStore(config.llm_settings_path, config.ollama_model)
-    pipeline = LearningPipeline(config, db, store)
+    pipeline = LearningPipeline(replace(config, restricted_video_links=True), db, store)
     manager = JobManager(db, pipeline)
     mutation_lock = asyncio.Lock()
     buckets: dict[str, deque] = {}
@@ -209,7 +218,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
                 'max_subtitle_bytes': min(config.max_download_bytes, 10 * 1024**2),
                 'max_duration_seconds': config.max_duration_seconds, 'max_active_jobs': max_active,
                 'max_retained_jobs': max_jobs, 'requests_per_minute': requests_per_minute,
-                'url_import': False,
+                'url_import': True, 'url_sites': ['bilibili', 'youtube'],
                 'notes': {'provider': store.public()['default_provider'],
                           'model': store.public()['api_model'] if store.public()['default_provider'] == 'openai_compatible' else store.public()['local_model']}}
 
@@ -243,6 +252,28 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
             except TimeoutError:
                 raise HTTPException(408, 'Upload timed out')
             manager.enqueue(job['id'])
+            return job
+
+    @app.post('/v1/jobs/link', response_model=JobView, status_code=202, tags=['Jobs'])
+    async def import_link(body: LinkRequest, key_id: str = Depends(authenticate)):
+        from .video_links import normalize_video_link
+        from .security import UnsafeUrlError
+        try:
+            url = await run_in_threadpool(normalize_video_link, body.url)
+        except UnsafeUrlError as exc:
+            raise HTTPException(400, str(exc)) from None
+        async with mutation_lock:
+            capacity(new_job=True)
+            provider = notes_provider() if body.mode == 'lecture' else store.public()['default_provider']
+            job_id = uuid.uuid4().hex
+            directory = config.jobs_dir / job_id
+            directory.mkdir()
+            try:
+                job = db.create_job(job_id, url, directory, 'balanced', provider, body.mode, body.device, owner_id=key_id)
+            except Exception:
+                directory.rmdir()
+                raise
+            manager.enqueue(job_id)
             return job
 
     @app.get('/v1/jobs', response_model=JobPage, tags=['Jobs'])
