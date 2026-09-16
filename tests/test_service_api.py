@@ -215,3 +215,4 @@ def test_gpu_default_and_explicit_cpu_for_both_inputs(service, monkeypatch):
         for response in responses:
             assert response.status_code == 202
             assert app.state.database.get_job(response.json()['id'])['transcription_device'] == (device or 'gpu')
+            assert app.state.database.get_job(response.json()['id'])['transcription_profile'] == 'accurate'

@@ -247,7 +247,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
                 async with asyncio.timeout(120):
                     job = await import_material(request, filename, database=db,
                         manager=SimpleNamespace(enqueue=lambda _: None), settings=config,
-                        processing_mode=mode, transcription_device=device, owner_id=key_id,
+                        processing_mode=mode, transcription_device=device, owner_id=key_id, transcription_profile='accurate',
                         llm_provider=notes_provider() if mode == 'lecture' else store.public()['default_provider'])
             except TimeoutError:
                 raise HTTPException(408, 'Upload timed out')
@@ -269,7 +269,7 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
             directory = config.jobs_dir / job_id
             directory.mkdir()
             try:
-                job = db.create_job(job_id, url, directory, 'balanced', provider, body.mode, body.device, owner_id=key_id)
+                job = db.create_job(job_id, url, directory, 'accurate', provider, body.mode, body.device, owner_id=key_id)
             except Exception:
                 directory.rmdir()
                 raise
