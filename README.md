@@ -1,84 +1,62 @@
 # 述影 Shuying
 
-**把技术视频整理成可回查来源、可人工校订的讲义。**
+**把视频和音频，变成方便阅读、查找和整理的文字。**
 
-Local-first technical video notes with source-linked paragraphs, reviewable transcript corrections, and resumable processing.
+一节课、一段访谈、一期播客，听过之后也能留下用得上的内容。述影可以把声音转成文字，让你搜索、修改、导出；需要整理重点时，还可以用 AI 生成带有原文出处的笔记。
 
-[English](README.en.md) · [架构](docs/architecture.md) · [验证记录](docs/validation.md) · [贡献指南](CONTRIBUTING.md)
+**[下载 Windows 版](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.2/Shuying-windows-x64.zip)** · [使用指南](docs/user-guide.md) · [反馈问题](https://github.com/Jyz1jz1100-star/shuying/issues) · [English](README.en.md)
 
-> **2.0.0-alpha.2**：Windows 本地应用，正在寻找首批试用者。引用提供核查入口，不保证模型生成内容正确。尚无外部社区采用度或准确率结论。
+免费开源 · 本地保存 · Windows x64 · 当前为 Alpha 测试版
 
-## 第一次使用
+## 什么时候用得上？
 
-1. 从 [Releases](https://github.com/Jyz1jz1100-star/shuying/releases) 下载 Windows ZIP，完整解压后运行 `VideoSummarizer.exe`。无需安装 Python 或 Node.js。测试版尚未签名。
-2. 点击“先体验示例”，无需模型、密钥或显卡，即可阅读、搜索、修改和导出原创示例字幕。
-3. 导入自己的 UTF-8 SRT/VTT，或选择视频 / 音频。默认“阅读 / 转写字幕”，不调用总结模型。
-4. 需要提炼内容时，再在“模型设置”选择已下载的 Ollama 模型或填写兼容 API，然后从工作区生成讲义。
+| 你想做的事 | 述影可以帮你 |
+| --- | --- |
+| 看完课程，留一份方便复习的材料 | 把内容转成文字，按需整理成中文笔记，导出 Word |
+| 找回播客或访谈里听到的一句话 | 搜索文字，查看对应时间；有本地音频时可以回听 |
+| 把自己的录音整理成文稿 | 转写后直接修改，再导出可编辑的文档 |
+| 修正已有字幕，继续在其他工具里使用 | 导入 SRT / VTT，修改后导出字幕或纯文本 |
 
-媒体转写仍需要 Whisper 模型，首次按需下载；可选 GPU 或 CPU，CPU 通常明显更慢。文本导入完全跳过音频转写。
+## 从听到，到用上
 
-## 工作流程
+- **按自己的节奏读。** 导入视频、音频或字幕，在同一个工作区阅读和搜索。
+- **看得见原话。** AI 笔记中的引用可以回到对应字幕，方便核对数字、观点和上下文。
+- **改完还能接着整理。** 修改转写文字后，可以更新相关笔记；原始文字仍会保留。
+- **成果带得走。** 导出 Word、Markdown、TXT、SRT、VTT 或 JSON，继续用自己熟悉的工具处理。
+- **先用起来，再选 AI。** 示例和已有字幕无需模型或密钥；生成笔记时，可以选择本机模型或兼容的在线服务。
 
-1. 粘贴公开视频链接，或导入视频、音频、UTF-8 SRT/VTT。
-2. 优先使用人工字幕，否则用 whisper.cpp Vulkan 本地转写。
-3. 生成中文讲义，保留专有名词，每段引用关联具体字幕片段。
-4. 点击引用查看原始字幕与当前文本；有回听音频时可跳到对应位置。
-5. 接受、拒绝或手动修改校对建议。原文保留，数字、否定词及部分技术词变化会被标记。
-6. 更新受影响的章节，导出 Markdown、Word、SRT、VTT、TXT 或结构化 JSON。未生成讲义时，Markdown/Word 导出完整字幕阅读稿；TXT/SRT/VTT 始终导出当前字幕。
+## 三步开始
 
-转写、校对和讲义按块保存检查点。失败或取消后点击“继续处理”，复用依赖未变化的完成块。引用时间由程序根据真实片段 ID 计算。
+1. **下载并解压。** 下载上方的 Windows ZIP，完整解压后打开 `VideoSummarizer.exe`。无需安装 Python 或 Node.js；请保留同目录的其他文件。当前测试包尚未签名。
+2. **先体验示例。** 点击“先体验示例”，直接试试阅读、搜索、修改和导出，无需下载模型。
+3. **换成自己的内容。** 导入字幕、视频、音频，或粘贴公开视频链接。默认先得到文字；需要 AI 笔记时，再设置模型并生成“讲义”。
 
-首版还包含任务级术语表、修订历史文件、版本冲突检测、媒体单独清理、旧任务兼容，以及 Windows 系统声音实时字幕。
+音视频转写首次使用需要下载语音识别模型，可选显卡或 CPU；CPU 通常更慢。已有字幕无需这一步。配置方法见[使用指南](docs/user-guide.md)。
 
-## Windows 开发安装
+## 支持哪些内容？
 
-需要 Windows x64、Python 3.12、Node.js 22.13+ 和 pnpm 11。GPU 转写需要兼容 Vulkan 的显卡与驱动，也可显式选择 CPU。SRT/VTT 导入不需要 GPU、Whisper 运行时或总结模型。
+| 输入 | 输出 |
+| --- | --- |
+| 本地视频、音频；支持站点的公开视频链接 | 可阅读、搜索和修改的带时间字幕 |
+| UTF-8 编码的 SRT / VTT 字幕 | TXT、SRT、VTT 字幕或文字 |
+| 上述内容，可选 AI 整理 | Word、Markdown 文稿或中文笔记；JSON 数据 |
 
-```powershell
-git clone https://github.com/Jyz1jz1100-star/shuying.git
-cd shuying
-powershell -ExecutionPolicy Bypass -File .\setup_windows.ps1
-```
+没有生成 AI 笔记，也能导出完整的 Word / Markdown 文字稿。公开视频链接能否读取取决于站点；登录、付费、DRM 内容、直播和播放列表暂不支持。
 
-总结模型二选一：
+## 常见问题
 
-- **本地**：安装并启动 [Ollama](https://ollama.com/)，在“模型设置”选择已有模型，或输入精确名称。仅保存设置不会下载模型；生成讲义时若该模型不存在，会按需下载。初始默认值为 `qwen3.5:9b-q4_K_M`，可改为适合本机的较小模型。
-- **API**：在“LLM 设置”填写 OpenAI 兼容地址、精确模型 ID 与密钥。远程地址必须为 HTTPS，请求格式为 `/v1/chat/completions`。
+**我的内容会上传吗？** 任务和媒体副本保存在本机。本地模型处理时，内容不会发送给 AI 云服务；选择在线 AI 服务后，会把整理所需的文本发送给你配置的服务商，不发送视频或音频。视频和模型下载仍需要联网。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_dev.ps1
-```
+**不用 AI 能用吗？** 可以。示例和已有字幕可以直接阅读、搜索、修改、导出。把声音转成文字需要语音识别模型；生成笔记是另外一个可选步骤。在线服务可能单独收费。
 
-浏览器会自动打开本地应用。先导入 [原创示例字幕](examples/checkpoints.srt)，无需下载视频或转写模型。仅处理字幕时可用 `setup_windows.ps1 -SkipWhisper` 跳过转写运行时下载。前端开发使用 `pnpm dev`，API 代理到本地后端。
+**能读懂视频画面吗？** 目前处理的是说话内容和字幕，不识别画面、幻灯片或板书。AI 笔记也可能出错，重要内容请结合原文核对。
 
-## 限制与数据去向
+**支持我的设备和文件吗？** 当前提供 Windows x64 版本。单个媒体最长 2 小时、最大 2GB；字幕最大 10MB。更多硬件、存储和使用说明见[使用指南](docs/user-guide.md)。
 
-- 仅支持 Windows x64、本地单用户，不要暴露到公网。
-- 最长 2 小时；媒体最多 2GB，SRT 最多 10MB。不支持登录、付费、DRM、直播或播放列表，也不理解画面。
-- 本地推理不会向 AI 云服务发送内容；视频和模型下载仍需要网络。
-- API 模式向用户选择的服务商发送字幕和讲义所需文本，不发送视频或音频。密钥以 Windows DPAPI 加密保存。
-- 数据保存在 `%LOCALAPPDATA%\VideoSummarizer`，可通过 `VIDEOSUMMARIZER_DATA_DIR` 覆盖。
-- 媒体副本默认保留。“清理媒体副本”仅删除应用保存的副本；再次回听需要重新导入或下载，字幕与讲义继续保留。
-- 修订历史保存在任务 `history/`；尚无历史恢复 UI 或时间轴拆分合并。
-- 作者字幕任务未下载音频时，通过来源链接和文字核查。旧讲义不会自动补造引用，可以主动重新生成。
+## 一起改进述影
 
-## 验证与打包
+欢迎[反馈问题或提出需求](https://github.com/Jyz1jz1100-star/shuying/issues)。告诉我们你想完成什么、在哪一步遇到了困难；附上版本和脱敏后的错误信息会更有帮助。
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-pnpm typecheck
-pnpm build
-powershell -ExecutionPolicy Bypass -File .\build_windows.ps1
-```
+想参与代码、文档或翻译？请看[贡献指南](CONTRIBUTING.md)与[开发指南](docs/development.md)。版本变化见[更新记录](CHANGELOG.md)。
 
-输出 `dist\VideoSummarizer\VideoSummarizer.exe`，运行时保留完整目录。Whisper 运行时按固定版本和 SHA256 获取，模型不进入 Git。CI 验证代码，手动打包工作流生成测试包。
-
-Python 依赖范围在 `requirements.txt`，已验证 Windows 环境的固定依赖在 `requirements-lock.txt`；前端使用 `pnpm-lock.yaml`。
-
-## 参与
-
-当前重点是可核查讲义与稳定恢复；外部试用、真实长视频评测和开源社区采用是下一阶段目标。CLI/MCP 等待实际接入需求。
-
-欢迎提交复现步骤、版本、硬件、脱敏错误及允许公开的最小材料。不要上传密钥、私人视频、日志或任务数据库。
-
-自有代码与原创示例采用 [MIT](LICENSE)。第三方软件和模型遵循各自许可，见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+自有代码与原创示例采用 [MIT 许可](LICENSE)。第三方软件和模型遵循各自许可，见[第三方声明](THIRD_PARTY_NOTICES.md)。
