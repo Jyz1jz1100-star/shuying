@@ -152,3 +152,21 @@
  .wb-reading-row span { overflow-wrap:anywhere; }
  .wb-reading-row:hover,.wb-reading-row.selected { background:#eaf4ed; }
  .wb-toolbar select { padding:8px; max-width:230px; border:1px solid #cedbd2; border-radius:8px; background:white; }
+.wb-view-switch { display:flex; gap:8px; margin:12px 0; }
+.wb-view-switch button[aria-pressed="true"] { background:#205d50; color:#fff; }
+.topic-map { padding:16px; overflow-wrap:anywhere; }
+.topic-map-tools { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+.topic-root { display:block; background:#e2f0e9; border:1px solid #82b7a4; border-radius:10px; padding:14px; }
+.topic-branches, .topic-branches ul { list-style:none; margin:0 0 0 18px; padding:12px 0 0 20px; border-left:2px solid #a6cbbd; }
+.topic-branches li { position:relative; margin-bottom:12px; }
+.topic-branches li::before { content:''; position:absolute; width:20px; border-top:2px solid #a6cbbd; left:-20px; top:20px; }
+.topic-branches summary { cursor:pointer; padding:12px; border:1px solid #b9cfc5; border-radius:8px; background:#f4f8f5; }
+.topic-branches button, .topic-branches p { margin:0; width:100%; text-align:left; white-space:normal; line-height:1.65; padding:12px; border:1px solid #d4dfda; border-radius:8px; }
+.topic-branches button:hover { background:#eaf4ee; }
+.topic-map button:focus-visible, .topic-map summary:focus-visible { outline:3px solid #287763; outline-offset:3px; }
+.library-tools { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:16px 0; }
+.library-tools label { display:flex; flex-direction:column; gap:6px; font-size:13px; }
+.library-tools label:first-child { flex:1; min-width:180px; }
+.library-tools input, .library-tools select { padding:10px; border:1px solid #c7d6ce; border-radius:8px; background:#fff; color:#233c33; }
+.library-tools > span { align-self:center; font-size:13px; }
+@media(max-width:600px) { .topic-map { padding:8px; } .topic-branches, .topic-branches ul { margin-left:6px; padding-left:12px; } .topic-branches li::before { width:12px; left:-12px; } }

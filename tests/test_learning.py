@@ -87,6 +87,36 @@ def test_import_without_whisper_or_llm(project):
     assert client.post('/api/import?filename=bad.srt',content=invalid.encode()).status_code == 400
 
 
+def test_navigation_snapshot_and_outline_endpoint(project):
+    create(project)
+    _,db,pipeline,_,client = project
+    # Workspace URLs are computed for presentation, never stored as edits.
+    job = db.get_job('test')
+    with db.connect() as conn:
+        conn.execute('UPDATE jobs SET url=? WHERE id=?', ('https://youtu.be/abcdefghijk', 'test'))
+    state = make_workspace(raw_transcript())
+    state['blocks'] = [normalize_block({'heading': '主题', 'paragraphs': [{'text': '笔记内容', 'segment_ids': ['s000001']}]}, state['segments'], 'b0')]
+    pipeline.save(job,state)
+    response = client.get('/api/jobs/test/workspace')
+    assert response.status_code == 200
+    assert response.json()['segments'][0]['source_url'].endswith('t=0s')
+    assert 'source_url' not in pipeline.state(db.get_job('test'))['segments'][0]
+    exported = client.get('/api/jobs/test/export?format=outline')
+    assert exported.status_code == 200
+    assert exported.headers['content-type'].startswith('text/markdown')
+    assert '## 主题' in exported.text and '笔记内容' in exported.text
+    assert 't=0s' in exported.text
+
+
+def test_library_does_not_hide_older_material(project):
+    config,db,_,_,_ = project
+    for index in range(105):
+        db.create_job(f'item-{index:03}', '', config.jobs_dir/f'item-{index}')
+    jobs = db.list_jobs()
+    assert len(jobs) == 105
+    assert {j['id'] for j in jobs} == {f'item-{i:03}' for i in range(105)}
+
+
 def test_revision_stale_export_and_media(project):
     directory = create(project)
     config,db,pipeline,manager,client=project

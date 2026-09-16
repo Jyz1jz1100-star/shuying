@@ -9,7 +9,7 @@ from docx.shared import Pt
 from docx.oxml.ns import qn
 
 from .checkpoints import atomic_json
-from .evidence import citation, render_markdown
+from .evidence import citation, render_markdown, time_link
 from .text_utils import format_timecode, safe_filename
 from .docx_builder import add_hyperlink
 
@@ -19,7 +19,14 @@ def export_workspace(state: dict, job: dict, format: str) -> Path:
     title = job.get('title') or '述影讲义'
     source = job.get('url') or ''
     path = directory / (safe_filename(title) + '_讲义.' + format)
-    if format in {'txt', 'vtt'}:
+    if format == 'outline':
+        from .outline import render_outline
+        path = directory / (safe_filename(title) + '_导图.md')
+        content = render_outline(state, title, source)
+        temporary = path.with_suffix('.md.tmp')
+        temporary.write_text(content, encoding='utf-8')
+        temporary.replace(path)
+    elif format in {'txt', 'vtt'}:
         if format == 'txt':
             content = '\n\n'.join(f'[{format_timecode(s["start"])}] {s["text"]}' for s in state['segments']) + '\n'
         else:
@@ -61,7 +68,14 @@ def export_workspace(state: dict, job: dict, format: str) -> Path:
             document.add_paragraph('包含尚未确认的字幕修改。')
         if not state['blocks']:
             for segment in state['segments']:
-                document.add_paragraph(f'[{format_timecode(segment["start"])}] {segment["text"]}')
+                p = document.add_paragraph()
+                label = f'[{format_timecode(segment["start"])}]'
+                link = time_link(source, segment['start'])
+                if link:
+                    add_hyperlink(p, label, link)
+                else:
+                    p.add_run(label)
+                p.add_run(' ' + segment['text'])
         for block in state['blocks']:
             document.add_heading(block['heading'], 1)
             if block.get('stale'):
@@ -69,7 +83,7 @@ def export_workspace(state: dict, job: dict, format: str) -> Path:
             for paragraph in block['paragraphs']:
                 document.add_paragraph(paragraph['text'])
                 ref = citation(paragraph['segment_ids'], state['segments'], source)
-                if not paragraph['segment_ids']:
+                if not ref['quote']:
                     document.add_paragraph('来源待确认')
                 else:
                     p = document.add_paragraph()

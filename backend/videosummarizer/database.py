@@ -102,7 +102,7 @@ class Database:
 
     def list_jobs(self) -> list[dict[str, Any]]:
         with self.connect() as connection:
-            rows = connection.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT 100").fetchall()
+            rows = connection.execute("SELECT * FROM jobs ORDER BY created_at DESC, id DESC").fetchall()
         return [self._serialize(row) for row in rows]
 
     def update_job(self, job_id: str, **values: Any) -> None:

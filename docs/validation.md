@@ -2,6 +2,8 @@
 
 This alpha is not an accuracy benchmark or evidence of community adoption.
 
+Alpha 3 local checks: 96 Python tests and 3 Node logic tests passed; TypeScript and Vite production build passed. New checks cover safe platform timestamp links (including Bilibili multipart and malformed input), Markdown/DOCX relationships, outline escaping and missing/stale citations, workspace-derived URLs, outline API MIME/content, availability of older tasks beyond 100 items, combined library filters, and valid map navigation targets. No browser interaction or visual layout validation was performed in this iteration. No new audio-quality or speech-separation claims are made. Windows packaging and CI results are recorded on the release/Actions pages.
+
 Alpha 2: 75 tests passed in the pinned clean Python environment; TypeScript and Vite build passed. New checks ensure transcript/demo paths never initialize an LLM, validate WebVTT parsing and multiline edit round-trips, export actual transcript content in six formats, preserve ASR provenance, use updated source titles, retain uncertain references as unverified, and use the persisted model for health/unload. Forced CPU smoke on the development machine: 5-second audio, 2 segments, about 21.2 seconds. This is not a test of a machine without Vulkan drivers.
 
 Live HTTP smoke with Ollama deliberately pointed at an unavailable loopback port: bundled demo completed in about 0.12 seconds after server startup; all six exports returned successfully; cross-site writes were rejected. This is not a cold application startup or first-time user study.

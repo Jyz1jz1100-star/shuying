@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from .checkpoints import Checkpoints, atomic_json, file_fingerprint
 from .database import ACTIVE_STATUSES
-from .evidence import apply_edit
+from .evidence import apply_edit, time_link
 from .exports import export_workspace
 from .learning import workspace_lock
 from .llm_settings import LLMSettingsError
@@ -60,7 +60,8 @@ def router_for(database, pipeline, manager, live, settings):
         state = pipeline.state(job)
         directory = Path(job['job_dir'])
         files = media_files(directory)
-        return {**state, 'title': job.get('title') or '待处理材料', 'source_url': job['url'],
+        return {**state, 'segments': [{**s, 'source_url': time_link(job['url'], s['start'])} for s in state['segments']],
+                'title': job.get('title') or '待处理材料', 'source_url': job['url'],
                 'error_message': job.get('error_message') or '',
                 'llm_provider': job.get('llm_provider', 'local'),
                 'media_available': (directory / 'transcribe.wav').is_file(),
@@ -242,7 +243,7 @@ def router_for(database, pipeline, manager, live, settings):
             return snapshot(job)
 
     @router.get('/api/jobs/{job_id}/export')
-    def export(job_id: str, format: Literal['md', 'docx', 'json', 'srt', 'txt', 'vtt'] = 'md'):
+    def export(job_id: str, format: Literal['md', 'docx', 'json', 'srt', 'txt', 'vtt', 'outline'] = 'md'):
         with workspace_lock:
             job = get_job(job_id)
             state = pipeline.state(job)
@@ -251,7 +252,7 @@ def router_for(database, pipeline, manager, live, settings):
             path = export_workspace(state, job, format)
             # Capture this revision before releasing the lock; streaming a mutable
             # shared export path can otherwise serve a later revision.
-            types = {'md': 'text/markdown', 'txt': 'text/plain', 'vtt': 'text/vtt', 'json': 'application/json', 'srt': 'application/x-subrip',
+            types = {'outline': 'text/markdown', 'md': 'text/markdown', 'txt': 'text/plain', 'vtt': 'text/vtt', 'json': 'application/json', 'srt': 'application/x-subrip',
                      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
             return Response(path.read_bytes(), media_type=types[format], headers={
                 'Content-Disposition': "attachment; filename*=UTF-8''" + quote(path.name), 'Cache-Control': 'no-store'})

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import TopicMap from './TopicMap';
 
-type Segment = { id:string; start:number; end:number; original:string; text:string; suggested:string; review:string; flags:string[] };
+type Segment = { id:string; start:number; end:number; original:string; text:string; suggested:string; review:string; flags:string[]; source_url:string };
 type Paragraph = { text:string; segment_ids:string[]; review:string };
 type Block = { id:string; heading:string; segment_ids:string[]; stale:boolean; paragraphs:Paragraph[] };
 type StageStatus = string | { name?:string; label?:string; stage?:string; message?:string; status?:string };
@@ -41,6 +42,7 @@ function normalizeSegment(raw:unknown,index:number):Segment {
     suggested: asText(item.suggested),
     review: asText(item.review),
     flags: asStringArray(item.flags),
+    source_url: asText(item.source_url),
   };
 }
 
@@ -147,6 +149,7 @@ async function readError(response:Response,fallback:string):Promise<string> {
 export default function Workbench({jobId,onClose,onConfigure,defaultProvider='local'}:{jobId:string;onClose:()=>void;onConfigure?:()=>void;defaultProvider?:'local'|'openai_compatible'}) {
   const [provider,setProvider] = useState(defaultProvider);
   const [readingCount,setReadingCount] = useState(200);
+  const [view,setView] = useState<'text'|'map'>('text');
   const [workspace,setWorkspace] = useState<Workspace|null>(null);
   const [loading,setLoading] = useState(true);
   const [offline,setOffline] = useState(false);
@@ -170,6 +173,7 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
   const writing = useRef(false);
 
   const audioRef = useRef<HTMLAudioElement|null>(null);
+  const pendingSeek = useRef<number|null>(null);
   const sidebarRef = useRef<HTMLElement|null>(null);
 
   const refresh = useCallback(async (silent:boolean):Promise<Workspace|null> => {
@@ -199,7 +203,9 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
     setDraftDirty(false);
     setGlossaryDirty(false);
     setQuery('');
+    setView('text'); setReadingCount(200);
     setAudioFailed(false);
+    pendingSeek.current=null;
     setActionError('');
     setNotice('');
     void refresh(false).finally(() => { if (alive) setLoading(false); });
@@ -252,6 +258,8 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
   },[workspace,query,selectedId]);
 
   const sourceHref = useMemo(() => safeHttpUrl(workspace?.source_url ?? ''),[workspace]);
+  const segmentIds = useMemo(()=>new Set(workspace?.segments.map(s=>s.id) ?? []),[workspace]);
+  const selectedSource = safeHttpUrl(selectedSegment?.source_url ?? '');
 
   const selectSegment = useCallback((id:string,seek:boolean) => {
     if (draftDirty && id !== selectedId && !window.confirm('放弃当前未保存的字幕修改并切换？')) return;
@@ -265,7 +273,12 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
       if (seek) {
         const audio = audioRef.current;
         if (audio && Number.isFinite(segment.start)) {
-          try { audio.currentTime = Math.max(0,segment.start); } catch { /* seeking is best effort */ }
+          pendingSeek.current=Math.max(0,segment.start);
+          if (audio.readyState===0) audio.load();
+          else {
+            try { audio.currentTime=pendingSeek.current; pendingSeek.current=null; }
+            catch { setNotice('音频暂时无法定位，请加载后重试。'); }
+          }
         }
       }
     }
@@ -446,9 +459,15 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
             <section className="wb-lecture" aria-labelledby="wb-lecture-title">
               <div className="wb-panel-head">
                 <h3 id="wb-lecture-title">{workspace.blocks.length ? '讲义' : '字幕阅读稿'}</h3>
+                {workspace.blocks.length > 0 && <div className="wb-view-switch" aria-label="阅读方式">
+                  <button type="button" aria-pressed={view==='text'} onClick={()=>setView('text')}>正文</button>
+                  <button type="button" aria-pressed={view==='map'} onClick={()=>setView('map')}>结构导图</button>
+                </div>}
                 <p className="wb-hint">{workspace.blocks.length ? '自动生成的草稿，请结合原字幕与原音频核实事实，引用不等于事实已验证。' : '未经模型改写。点击一段可校订原文，右侧可搜索；导出包含全部字幕。'}</p>
               </div>
-              {workspace.blocks.length === 0
+              {view==='map' && workspace.blocks.length > 0
+                ? <TopicMap title={workspace.title} blocks={workspace.blocks} segmentIds={segmentIds} onSelect={id=>selectSegment(id,true)} exportHref={`/api/jobs/${encodeURIComponent(jobId)}/export?format=outline`} />
+                : workspace.blocks.length === 0
                 ? <div className="wb-reading">{!segments.length && <p className="wb-note">正在等待字幕。处理进度显示在上方。</p>}{segments.slice(0,readingCount).map(segment=><button type="button" key={segment.id} onClick={()=>selectSegment(segment.id,true)} className={`wb-reading-row${selectedId===segment.id?' selected':''}`}><time>{formatTime(segment.start)}</time><span>{segment.text}</span></button>)}{segments.length>readingCount && <button type="button" className="wb-secondary" onClick={()=>setReadingCount(n=>n+200)}>继续阅读（剩余 {segments.length-readingCount} 段）</button>}</div>
                 : workspace.blocks.map(block => (
                   <article className="wb-block" key={block.id}>
@@ -497,7 +516,12 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
 
               {workspace.media_available ? (
                 <div className="wb-audio">
-                  <audio ref={audioRef} controls preload="none" src={mediaSrc} onError={() => setAudioFailed(true)} onLoadedData={() => setAudioFailed(false)}>您的浏览器不支持音频播放。</audio>
+                  <audio ref={audioRef} controls preload="none" src={mediaSrc} onError={() => setAudioFailed(true)} onLoadedMetadata={()=>{
+                    if (pendingSeek.current!==null && audioRef.current) {
+                      try { audioRef.current.currentTime=pendingSeek.current; pendingSeek.current=null; }
+                      catch { setNotice('音频暂时无法定位，请稍后重试。'); }
+                    }
+                  }} onLoadedData={() => setAudioFailed(false)}>您的浏览器不支持音频播放。</audio>
                   <p className="wb-hint">{audioFailed ? '音频加载失败，可稍后重试或清除音频缓存。' : `音频仅保存在本机${mediaSize}`}</p>
                 </div>
               ) : (
@@ -532,6 +556,7 @@ export default function Workbench({jobId,onClose,onConfigure,defaultProvider='lo
               {selectedSegment ? (
                 <section className="wb-editor" aria-labelledby="wb-editor-title">
                   <h4 id="wb-editor-title">所选字幕 · {formatTime(selectedSegment.start)} – {formatTime(selectedSegment.end)}</h4>
+                  {selectedSource && <a className="wb-source-link" href={selectedSource} target="_blank" rel="noreferrer noopener">在原视频打开 {formatTime(selectedSegment.start)} ↗</a>}
                   <p className="wb-label">原始转写</p>
                   <p className="wb-original">{selectedSegment.original || '（没有原始转写）'}</p>
                   <label className="wb-label" htmlFor="wb-segment-text">当前字幕文本</label>

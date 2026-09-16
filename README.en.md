@@ -21,8 +21,10 @@ Free and open source · Locally stored · Windows x64 · Alpha
 
 - **Read at your own pace.** Bring in local media, public video links, or existing subtitles.
 - **Check the original words.** References in AI notes lead to the corresponding transcript passages.
+- **See the structure first.** Switch existing notes to a collapsible topic map, select a node to find its source, or export a Markdown outline.
 - **Keep your corrections.** Edit the transcript and update the affected notes; original text is retained.
 - **Take your work with you.** Export Word, Markdown, TXT, SRT, VTT, or JSON. Without AI notes, Word and Markdown contain the full transcript.
+- **Find your materials.** Search by title, filename, author, or URL, then filter by status and source.
 - **Choose AI when you need it.** The example and existing subtitles need no model or API key. For notes, choose a local Ollama model or a compatible online service.
 
 ## Get started

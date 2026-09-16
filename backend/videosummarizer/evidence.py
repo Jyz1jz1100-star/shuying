@@ -332,7 +332,7 @@ def _bilibili_video_id(path: str) -> str:
     return match.group(1) if match else ""
 
 
-def _time_link(source_url: str, seconds: float) -> str:
+def time_link(source_url: str, seconds: float) -> str:
     """Return a timestamped link for known platforms, else an empty string.
 
     Links are rebuilt from a validated video id, so extra query parameters,
@@ -351,7 +351,7 @@ def _time_link(source_url: str, seconds: float) -> str:
         return ""
     if not _host_matches(host, SAFE_PLATFORM_DOMAINS):
         return ""
-    position = max(0, int(seconds))
+    position = int(_to_float(seconds))
     if _host_matches(host, ("youtube.com", "youtu.be")):
         video_id = _youtube_video_id(parsed, host)
         if not video_id:
@@ -360,7 +360,12 @@ def _time_link(source_url: str, seconds: float) -> str:
     video_id = _bilibili_video_id(parsed.path)
     if not video_id:
         return ""
-    return f"https://www.bilibili.com/video/{video_id}?t={position}"
+    pages = parse_qs(parsed.query, keep_blank_values=True).get('p', [])
+    page = pages[0] if pages else ''
+    if pages and (len(pages) != 1 or not re.fullmatch(r'[1-9][0-9]{0,5}', page)):
+        return ''
+    page_query = f'&p={page}' if page else ''
+    return f"https://www.bilibili.com/video/{video_id}?t={position}{page_query}"
 
 
 def citation(segment_ids: list[str], segments: list[dict], source_url: str = "") -> dict:
@@ -389,7 +394,7 @@ def citation(segment_ids: list[str], segments: list[dict], source_url: str = "")
         "start": start,
         "end": end,
         "quote": quote[:MAX_QUOTE_CHARS],
-        "url": _time_link(source_url, start),
+        "url": time_link(source_url, start),
     }
 
 
@@ -431,7 +436,10 @@ def render_markdown(state: dict, title: str, source_url: str = "") -> str:
     if not blocks:
         lines.extend(['## 字幕全文', ''])
         for segment in segments:
-            lines.extend([f'[{format_timecode(segment["start"])}] {_escape_inline(segment["text"])}', ''])
+            stamp = format_timecode(segment['start'])
+            link = time_link(source_url, segment['start'])
+            label = f'[{stamp}]({link})' if link else f'[{stamp}]'
+            lines.extend([f'{label} {_escape_inline(segment["text"])}', ''])
     for block in blocks:
         heading = _escape_inline(block.get("heading")) or "未命名章节"
         suffix = "（待更新）" if block.get("stale") else ""

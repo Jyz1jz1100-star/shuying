@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0-alpha.3
+
+- Open supported YouTube/Bilibili source videos at the selected subtitle time; retain Bilibili multipart selection.
+- Keep timestamp links in transcript-only Word and Markdown exports.
+- Switch existing notes to a collapsible topic map and export its Markdown outline, without another model or API call.
+- Search materials by title, filename, author or URL; combine status and source filters. Older tasks remain searchable beyond the previous 100-item limit, with progressive rendering.
+- Preserve missing-citation and stale-content warnings in maps/exports; load audio metadata before seeking.
+- No new dependencies, model downloads, database migrations or automatic media moves.
+
 ## 2.0.0-alpha.2
 
 - Start with a bundled example without Ollama, API keys or a GPU.

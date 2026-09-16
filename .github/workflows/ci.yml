@@ -18,4 +18,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: python -m pytest -q
       - run: pnpm typecheck
+      - run: node --experimental-strip-types --test tests/taskLibrary.test.mjs
       - run: pnpm build

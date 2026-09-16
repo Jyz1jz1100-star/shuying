@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Workbench from './Workbench';
+import { filterTasks, type TaskFilter, type SourceFilter } from './taskLibrary';
 import './workbench.css';
 
 type JobStatus = 'queued'|'probing'|'downloading'|'transcribing'|'proofreading'|'summarizing'|'rendering'|'completed'|'failed'|'canceled';
@@ -10,6 +11,7 @@ type Job = {
   created_at:string; updated_at:string; error_code?:string|null; error_message?:string|null;
   transcription_profile?:'balanced'|'accurate';
   llm_provider?:LLMProvider; processing_mode?:'transcript'|'lecture';
+  input_type?:string; input_name?:string;
 };
 type Health = { ok:boolean; ollama_ready:boolean; model_ready:boolean; model:string; free_disk_gb:number; active_job_id?:string|null; whisper_runtime_ready?:boolean; whisper_backend?:string; live_subtitles_status?:string; default_llm_provider?:LLMProvider; api_llm_configured?:boolean };
 type LLMSettings = { default_provider:LLMProvider; local_model:string; api_base_url:string; api_model:string; has_api_key:boolean };
@@ -48,6 +50,11 @@ export default function App() {
   const [settingsBusy,setSettingsBusy] = useState(false);
   const [settingsMessage,setSettingsMessage] = useState('');
   const [jobs,setJobs] = useState<Job[]>([]);
+  const [taskQuery,setTaskQuery] = useState('');
+  const [taskFilter,setTaskFilter] = useState<TaskFilter>('all');
+  const [sourceFilter,setSourceFilter] = useState<SourceFilter>('all');
+  const [taskCount,setTaskCount] = useState(50);
+  useEffect(()=>setTaskCount(50),[taskQuery,taskFilter,sourceFilter]);
   const [health,setHealth] = useState<Health|null>(null);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
@@ -210,6 +217,7 @@ export default function App() {
     finally { setLiveBusy(false); }
   }
 
+  const visibleJobs=filterTasks(jobs,taskQuery,taskFilter,sourceFilter);
   if (selectedJob) return <Workbench defaultProvider={llmProvider} onConfigure={()=>{setSelectedJob(null);setSettingsOpen(true);}} jobId={selectedJob} onClose={()=>{setSelectedJob(null); void refresh();}} />;
 
   return (
@@ -293,7 +301,14 @@ export default function App() {
 
       <section className="history-section">
         <div className="section-heading"><div><span className="kicker">最近任务</span><h2>你的材料</h2></div><span className="local-note">仅保存在这台电脑 · 剩余 {health?.free_disk_gb?.toFixed(1) ?? '—'} GB</span></div>
-        {jobs.length===0 ? <div className="empty-state"><span className="empty-icon" aria-hidden="true">文</span><div><strong>从一份字幕或示例开始</strong><p>无需先配置模型。导入 SRT/VTT 或点击上方示例，即可阅读和导出。</p></div></div> : <div className="job-list">{jobs.map(job=><article className="job-card" key={job.id}>
+        {jobs.length>0 && <div className="library-tools">
+          <label>查找材料<input type="search" value={taskQuery} onChange={event=>setTaskQuery(event.target.value)} placeholder="标题、文件名、作者或链接" /></label>
+          <label>处理状态<select value={taskFilter} onChange={event=>setTaskFilter(event.target.value as TaskFilter)}><option value="all">全部状态</option><option value="active">处理中</option><option value="completed">已完成</option><option value="attention">失败 / 已取消</option></select></label>
+          <label>材料来源<select value={sourceFilter} onChange={event=>setSourceFilter(event.target.value as SourceFilter)}><option value="all">全部来源</option><option value="url">在线链接</option><option value="media">本地音视频</option><option value="subtitle">字幕 / 示例</option></select></label>
+          <span role="status">{visibleJobs.length} / {jobs.length} 份</span>
+          {(taskQuery || taskFilter!=='all' || sourceFilter!=='all') && <button type="button" onClick={()=>{setTaskQuery('');setTaskFilter('all');setSourceFilter('all');}}>清除筛选</button>}
+        </div>}
+        {jobs.length===0 ? <div className="empty-state"><span className="empty-icon" aria-hidden="true">文</span><div><strong>从一份字幕或示例开始</strong><p>无需先配置模型。导入 SRT/VTT 或点击上方示例，即可阅读和导出。</p></div></div> : <div className="job-list">{visibleJobs.length===0 && <p className="empty-state">没有匹配的材料，试试其他关键词或清除筛选。</p>}{visibleJobs.slice(0,taskCount).map(job=><article className="job-card" key={job.id}>
           <div className="job-main"><div className={`job-badge ${job.status}`}>{labels[job.status]}</div><div className="job-copy"><strong>{job.title || '正在读取视频信息…'}</strong><p>{job.platform || '公开链接'}{job.author?` · ${job.author}`:''}{job.duration?` · ${formatDuration(job.duration)}`:''}{job.transcription_profile?` · ${job.transcription_profile==='accurate'?'高精度转写':'均衡转写'}`:''}{job.processing_mode==='transcript'?' · 仅字幕':job.llm_provider?` · ${job.llm_provider==='local'?'本地 Ollama':'LLM API'}`:''}</p></div><span className="job-percent">{job.progress}%</span></div>
           <div className="progress-track"><span style={{width:`${job.progress}%`}} /></div>
           <div className="job-bottom"><span className={job.status==='failed'?'job-error':''}>{job.error_message || job.stage_message}</span><div className="job-actions">
@@ -305,6 +320,7 @@ export default function App() {
             {!['queued','probing','downloading','transcribing','proofreading','summarizing','rendering'].includes(job.status) && <button className="delete" onClick={()=>void action(`/api/jobs/${job.id}`,'DELETE')}>删除</button>}
           </div></div>
         </article>)}</div>}
+        {visibleJobs.length>taskCount && <button type="button" onClick={()=>setTaskCount(n=>n+50)}>显示更多（剩余 {visibleJobs.length-taskCount} 份）</button>}
       </section>
       <footer><span>述影 · 本地视频总结与实时字幕</span><span>仅处理你有权访问与总结的内容</span></footer>
     </main>

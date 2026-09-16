@@ -28,7 +28,9 @@ One model worker serializes ASR and generation. Checkpoints use input/config fin
 - `POST /api/jobs/{id}/regenerate`: optional proofreading and llm_provider; promotes a transcript task to lecture mode and queues generation.
 - `GET /api/jobs/{id}/media`: retained decoded WAV with byte ranges.
 - `DELETE /api/jobs/{id}/media`: clears app-owned copies, retains text.
-- `GET /api/jobs/{id}/export?format=md|docx|json|srt|vtt|txt`: current snapshot, no model calls. Without lecture blocks, Word and Markdown contain the full transcript.
+- `GET /api/jobs/{id}/export?format=md|docx|json|srt|vtt|txt|outline`: current snapshot, no model calls. Without lecture blocks, Word and Markdown contain the full transcript. Outline exports preserve the current lecture hierarchy as Markdown.
+
+Workspace segment `source_url` values are derived safe platform time links and are not written into revision history. The topic map uses existing blocks and live segment IDs. The task list returns all metadata (no transcript contents); filtering is local and cards render 50 at a time. This keeps old materials discoverable; very large libraries will need server-side pagination later.
 
 These alpha local interfaces are not a stable SDK. Clients use task IDs, never arbitrary filesystem paths. Existing task lifecycle routes remain available.
 
