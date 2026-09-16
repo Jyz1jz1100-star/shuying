@@ -3,15 +3,19 @@
   "version": "2.0.0-alpha.3",
   "packageManager": "pnpm@11.21.0",
   "private": true,
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "build": "node scripts/build_mindmap.mjs && vite build",
+    "typecheck": "tsc --noEmit",
+    "test:mindmap": "node tests/mindmap_canvas.cjs && node tests/mobile_views.cjs"
   },
   "dependencies": {
     "@openai/sites-vite-plugin": "0.2.0",
     "@vitejs/plugin-react": "6.0.2",
+    "markmap-view": "0.18.12",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "vite": "8.0.13"

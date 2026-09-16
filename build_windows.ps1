@@ -8,6 +8,8 @@ Push-Location $ProjectRoot
 try {
     & $PythonExe scripts/fetch_runtime.py --verify-only
     if ($LASTEXITCODE -ne 0) { throw '请先运行 scripts/fetch_runtime.py 下载并校验运行时。' }
+    & $NodeExe 'scripts/build_mindmap.mjs'
+    if ($LASTEXITCODE -ne 0) { throw 'Mind-map asset build failed.' }
     & $NodeExe 'node_modules\vite\bin\vite.js' build
     if ($LASTEXITCODE -ne 0) { throw '前端构建失败。' }
     & $PythonExe scripts/collect_licenses.py

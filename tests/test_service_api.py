@@ -86,6 +86,12 @@ def test_mobile_page_is_public_but_data_remains_protected(service):
     assert 'frame-ancestors' in page.headers['content-security-policy']
     assert page.headers['cache-control'] == 'no-store'
     assert TOKEN not in page.text
+    assert '/mindmap.js' in page.text
+    canvas = client.get('/mindmap.js')
+    assert canvas.status_code == 200
+    assert 'application/javascript' in canvas.headers['content-type']
+    assert 'ShuyingMindmap' in canvas.text
+    assert TOKEN not in canvas.text
     script = client.get('/mobile.js')
     assert script.status_code == 200
     assert 'application/javascript' in script.headers['content-type']

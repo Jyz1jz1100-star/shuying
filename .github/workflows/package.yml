@@ -23,6 +23,7 @@ jobs:
       - run: .\.venv\Scripts\python.exe scripts/fetch_runtime.py
       - run: .\.venv\Scripts\python.exe -m pytest -q
       - run: pnpm typecheck
+      - run: pnpm test:mindmap
       - run: node --experimental-strip-types --test tests/taskLibrary.test.mjs
       - run: .\build_windows.ps1
       - name: Verify bundled example and model-free exports

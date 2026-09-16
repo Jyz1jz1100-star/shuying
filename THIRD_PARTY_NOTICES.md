@@ -39,3 +39,7 @@ SubRip subtitle composition and validation uses srt 3.5.3:
 
 - Source: https://github.com/cdown/srt
 - License: MIT
+
+## Interactive mind maps
+
+Desktop and phone clients use markmap-view (MIT), markmap-common (MIT) and D3 (ISC), with versions locked in pnpm-lock.yaml. The phone bundle includes dependency license notices; Windows builds collect the installed notices in licenses/frontend. Sources: https://github.com/markmap/markmap and https://github.com/d3/d3.

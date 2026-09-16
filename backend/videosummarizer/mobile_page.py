@@ -6,7 +6,7 @@ HTML = r'''<!doctype html>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#14233b;background:#f3f6fc;font-size:16px}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}textarea{width:100%;resize:vertical;min-height:88px;padding:14px;border:1px solid #c8d3e5;border-radius:12px;background:white}button,.pick{min-height:48px;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;background:#153bdb;color:white;font-weight:650}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible,.pick:focus-within{outline:3px solid #759aff;outline-offset:3px}.secondary{background:#eaf0fc;color:#213e76}.quiet{background:transparent;color:#52617a;padding:10px}.danger{color:#a32b32;background:#fff0f1}[hidden]{display:none!important}main{max-width:780px;margin:auto;padding:24px 18px 60px;padding-bottom:max(60px,env(safe-area-inset-bottom))}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}.brand{font-size:25px;font-weight:800;letter-spacing:.04em}.brand small{display:block;color:#61718b;font-size:14px;font-weight:400;letter-spacing:0;margin-top:3px}h1{font-size:28px;margin:0 0 12px;line-height:1.4}h2{font-size:20px;margin:0}p{line-height:1.7}.muted{color:#61718b;font-size:14px}.panel{background:white;border:1px solid #e2e8f3;border-radius:20px;padding:24px;margin-bottom:20px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.stack{display:grid;gap:14px}input[type=password]{width:100%;padding:14px;border:1px solid #c8d3e5;border-radius:12px;background:#fff}label{line-height:1.7}.pick{display:flex;position:relative;align-items:center;justify-content:center;min-height:100px;text-align:center;background:#eef3ff;color:#153bdb;border:1px dashed #92aaf8}.pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}.pick:has(input:disabled){opacity:.5}#filename{overflow-wrap:anywhere;margin:0}progress{width:100%;height:10px;accent-color:#153bdb}#message{position:sticky;top:10px;z-index:2;background:#fff4dc;color:#664b08;border-radius:12px;padding:14px;line-height:1.6;margin-bottom:16px;white-space:pre-wrap}#jobs{display:grid;gap:10px;margin-top:14px}.job{width:100%;text-align:left;display:flex;justify-content:space-between;gap:14px;background:white;color:#14233b;border:1px solid #e2e8f3;padding:18px}.job .name{min-width:0;overflow-wrap:anywhere}.job .status{font-size:14px;white-space:nowrap;color:#5d6f8d;font-weight:400}.job[aria-current=true]{border-color:#153bdb;background:#eef3ff}#detail{margin-top:20px}#detail-title{overflow-wrap:anywhere}#transcript{max-height:62vh;overflow:auto;border-top:1px solid #e2e8f3;margin-top:20px}.segment{padding:14px 0;border-bottom:1px solid #edf0f5}.segment time{font-size:13px;color:#61718b;display:block;margin-bottom:5px}.segment p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}select{max-width:100%;padding:12px;border:1px solid #c8d3e5;border-radius:12px;background:white;color:#14233b}footer{margin-top:30px;color:#61718b;font-size:14px;line-height:1.8}footer a{color:#61718b}#upload{width:100%}#empty{padding:18px 0}details{font-size:14px;color:#61718b}summary{cursor:pointer;padding:8px 0}#upload-state{font-size:14px;color:#153bdb}#job-state{line-height:1.6;color:#61718b}@media(max-width:480px){main{padding:20px 14px 40px}.panel{padding:20px 16px;border-radius:16px}h1{font-size:25px}.job{padding:16px 12px}.row.actions>*{flex:1}header{margin-bottom:20px}}
  .view-switch{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.view-switch button{flex:1;background:#eaf0fc;color:#213e76;white-space:nowrap}.view-switch button[aria-pressed="true"]{background:#153bdb;color:white}.reading p{white-space:pre-wrap;overflow-wrap:anywhere}.map-root{padding:14px;border-radius:12px;background:#153bdb;color:white;margin:16px 0}.map-branch{border-left:3px solid #92aaf8;margin:14px 0 14px 8px;padding:0 0 0 16px;color:#14233b;font-size:16px}.map-branch summary{font-weight:700}.map-node{border:1px solid #dce5f5;border-radius:12px;padding:14px;margin:10px 0;background:#f6f8ff}.source-ref{font-size:14px;text-align:left}.warning{color:#9b4a08}
-</style><script src="/mobile.js" defer></script></head>
+</style><script src="/mindmap.js" defer></script><script src="/mobile.js" defer></script></head>
 <body><main><header><div class="brand">述影<small>视频、录音，随手转文字</small></div><button id="logout" class="quiet" hidden>退出</button></header>
 <div id="message" role="status" aria-live="polite" hidden></div>
 <section id="login" class="panel"><h1>在手机上接着用</h1><p class="muted">输入访问密钥，连接你的述影服务。</p><form id="login-form" class="stack"><label for="key">访问密钥</label><input id="key" type="password" placeholder="粘贴访问密钥" autocomplete="off" autocapitalize="none" spellcheck="false" required><button id="connect" type="submit">连接述影</button></form><p class="muted">密钥只在当前标签页中保留，退出后清除。</p><details><summary>密钥在哪里？</summary><p>向服务管理者获取。如果服务装在自己的电脑上，在安装目录的 client-key.json 中复制 api_key 对应的值；不要复制整个文件。</p></details></section>
@@ -19,6 +19,7 @@ JS = r'''"use strict";
 const $ = id => document.getElementById(id);
 const storageKey = "shuying.session.key";
 let token = "", generation = 0, capabilities, selected = null, jobs = [], pageSize = 20, total = 0;
+let mapCanvas=null, mapData=null;
 let uploadRequest = null, busy = false, refreshing = false, resultFor = "", nextPoll = 0;
 const active = job => !["completed", "failed", "canceled"].includes(job.status);
 const stages = {queued:"等待处理",probing:"检查文件",downloading:"准备材料",transcribing:"转写中",proofreading:"校对中",summarizing:"整理笔记",rendering:"生成文稿",completed:"已完成",failed:"处理失败",canceled:"已取消"};
@@ -105,11 +106,18 @@ async function refresh() {
   }finally{refreshing=false;}
 }
 function timestamp(seconds){const value=Math.max(0,Math.floor(Number(seconds)||0));return `${Math.floor(value/60)}:${String(value%60).padStart(2,"0")}`;}
-function clearResults(){for(const id of ["transcript","summary-content","map-content"])$(id).replaceChildren();$("views").hidden=true;switchView("original");}
+function clearResults(){mapCanvas?.destroy();mapCanvas=null;mapData=null;for(const id of ["transcript","summary-content","map-content"])$(id).replaceChildren();$("views").hidden=true;switchView("original");}
 function switchView(view){
   for(const [name,id] of [["original","transcript"],["summary","summary-content"],["map","map-content"]]){
     $(id).hidden=name!==view;$("view-"+name).setAttribute("aria-pressed",String(name===view));
   }
+  if(view==="map"&&mapData?.sections.length&&!mapCanvas){
+    mapCanvas=ShuyingMindmap.createCanvas($("map-content"),mapData.title,mapData.sections,ids=>{
+      const id=ids.find(id=>mapData.segments.some(s=>s.id===id));if(!id)return;
+      switchView("original");document.getElementById("segment-"+id)?.scrollIntoView({behavior:"smooth",block:"center"});
+    });
+  }
+  if(view==="map")mapCanvas?.fit();
 }
 for(const view of ["original","summary","map"])$("view-"+view).onclick=()=>switchView(view);
 function sourceReference(paragraph,segments){
@@ -121,6 +129,7 @@ function sourceReference(paragraph,segments){
   return button;
 }
 function renderNotes(data,job){
+  mapCanvas?.destroy();mapCanvas=null;
   const summary=$("summary-content"),map=$("map-content");
   summary.replaceChildren();map.replaceChildren();
   const empty=target=>{const hint=document.createElement("p");hint.textContent="尚未生成这项结果。点击上方“生成 AI 总结和导图”，无需重新转写。";target.append(hint);};
@@ -134,15 +143,7 @@ function renderNotes(data,job){
     summary.append(list);
   }
   if(!data.mindmap?.length)empty(map);
-  for(const section of data.mindmap||[]){
-    const root=document.createElement("h3");root.className="map-root";root.textContent=section.topic;map.append(root);
-    for(const group of section.branches){
-      const branch=document.createElement("details");branch.className="map-branch";branch.open=true;
-      const title=document.createElement("summary");title.textContent=group.label;branch.append(title);
-      for(const leaf of group.children){const node=document.createElement("div");node.className="map-node";const text=document.createElement("p");text.textContent=leaf.label;node.append(text,sourceReference(leaf,data.segments));branch.append(node);}
-      map.append(branch);
-    }
-  }
+  mapData={title:job.title||"内容主题",sections:data.mindmap||[],segments:data.segments};
 }
 async function showJob(job){
   selected=job;$("detail").hidden=false;$("detail-title").textContent=job.title||"未命名材料";

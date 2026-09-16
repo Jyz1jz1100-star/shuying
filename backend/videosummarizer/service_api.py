@@ -131,6 +131,11 @@ def create_service(config: Settings, keys: KeyStore, *, start_worker: bool = Tru
         from .mobile_page import JS
         return Response(JS, media_type='application/javascript')
 
+    @app.get('/mindmap.js', include_in_schema=False)
+    def mindmap_script():
+        from .mindmap_assets import JS
+        return Response(JS, media_type='application/javascript')
+
     if allowed_origins:
         if '*' in allowed_origins:
             raise ValueError('Configure explicit browser origins, not a wildcard')
