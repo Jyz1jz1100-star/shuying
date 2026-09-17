@@ -77,7 +77,7 @@ def router_for(database, pipeline, manager, live, settings):
 
     @router.post('/api/import', status_code=202)
     async def import_file(request: Request, filename: str, llm_provider: Literal['local', 'openai_compatible'] = 'local',
-                          transcription_profile: Literal['balanced', 'accurate'] = 'balanced', source_url: str = '',
+                          transcription_profile: Literal['balanced', 'accurate'] = 'accurate', source_url: str = '',
                           processing_mode: Literal['transcript', 'lecture'] = 'lecture',
                           transcription_device: Literal['gpu', 'cpu'] = 'gpu'):
         if live.active:

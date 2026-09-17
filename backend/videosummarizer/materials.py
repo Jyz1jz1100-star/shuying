@@ -36,7 +36,7 @@ def inspect_material(destination, is_subtitle, settings):
 
 
 async def import_material(request: Request, filename: str, *, database, manager, settings,
-                          llm_provider='local', transcription_profile='balanced', source_url='',
+                          llm_provider='local', transcription_profile='accurate', source_url='',
                           processing_mode='transcript', transcription_device='cpu', owner_id=None):
     suffix = Path(filename).suffix.lower()
     is_subtitle = suffix in {'.srt', '.vtt'}

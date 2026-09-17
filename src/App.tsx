@@ -40,7 +40,7 @@ export default function App() {
   const [liveOpen,setLiveOpen] = useState(false);
   const [inputFile,setInputFile] = useState<File|null>(null);
   const [url,setUrl] = useState('');
-  const [profile,setProfile] = useState<'balanced'|'accurate'>('balanced');
+  const [profile,setProfile] = useState<'balanced'|'accurate'>('accurate');
   const [llmProvider,setLlmProvider] = useState<LLMProvider>('local');
   const [llmSettings,setLlmSettings] = useState<LLMSettings|null>(null);
   const [settingsOpen,setSettingsOpen] = useState(false);
@@ -241,7 +241,7 @@ export default function App() {
           <div className="input-row"><div className="input-wrap"><span className="link-icon" aria-hidden="true">↗</span><input id="video-url" type="url" value={url} onChange={event=>setUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." required autoComplete="url" /></div><button type="submit" disabled={busy || connection==='offline'}>{busy?'正在提交…':mode==='transcript'?'获取字幕':'生成总结和导图'} <span aria-hidden="true">→</span></button></div>
           <details className="input-options"><summary>语音转写设置（已有字幕可忽略）</summary>
           <div className="form-meta"><label htmlFor="transcription-device">需要语音转写时使用 <select id="transcription-device" value={device} onChange={event=>setDevice(event.target.value as 'gpu'|'cpu')}><option value="gpu">GPU（Vulkan，较快）</option><option value="cpu">CPU（兼容退路，较慢）</option></select></label><span>已有字幕时跳过语音转写</span></div>
-          <fieldset className="profile-switch"><legend>语音转写模式</legend><label className={profile==='balanced'?'selected':''}><input type="radio" name="profile" value="balanced" checked={profile==='balanced'} onChange={()=>setProfile('balanced')} /><span><b>均衡模式</b><small>large-v3-turbo · 推荐</small></span></label><label className={profile==='accurate'?'selected':''}><input type="radio" name="profile" value="accurate" checked={profile==='accurate'} onChange={()=>setProfile('accurate')} /><span><b>高精度模式</b><small>large-v3 · 口音与复杂音频</small></span></label></fieldset>
+          <fieldset className="profile-switch"><legend>语音转写模式</legend><label className={profile==='balanced'?'selected':''}><input type="radio" name="profile" value="balanced" checked={profile==='balanced'} onChange={()=>setProfile('balanced')} /><span><b>均衡模式</b><small>large-v3-turbo · 更快</small></span></label><label className={profile==='accurate'?'selected':''}><input type="radio" name="profile" value="accurate" checked={profile==='accurate'} onChange={()=>setProfile('accurate')} /><span><b>高精度模式</b><small>large-v3 · 默认高精度</small></span></label></fieldset>
           </details>
           {mode==='lecture' && <fieldset className="profile-switch llm-switch"><legend>内容校对与总结模型</legend><label className={llmProvider==='local'?'selected':''}><input type="radio" name="llm-provider" value="local" checked={llmProvider==='local'} onChange={()=>setLlmProvider('local')} /><span><b>本地 Ollama</b><small>{llmSettings?.local_model || health?.model || 'qwen3.5'} · 内容不出本机</small></span></label><label className={llmProvider==='openai_compatible'?'selected':''}><input type="radio" name="llm-provider" value="openai_compatible" checked={llmProvider==='openai_compatible'} onChange={()=>setLlmProvider('openai_compatible')} /><span><b>LLM API</b><small>{llmSettings?.api_model || 'OpenAI 兼容接口'}</small></span></label><button className="configure-llm" type="button" onClick={()=>setSettingsOpen(value=>!value)}>模型设置</button></fieldset>}
           <div className="form-meta"><span>支持 YouTube、哔哩哔哩与公开媒体直链</span><span>最长 2 小时</span></div>

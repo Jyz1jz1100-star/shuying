@@ -47,6 +47,24 @@ def create(project, n=1):
     return directory
 
 
+@pytest.mark.parametrize('profile,device', [(None, None), ('balanced', 'cpu')])
+def test_desktop_import_defaults_match_service_and_keep_overrides(project, profile, device):
+    from videosummarizer.schemas import CreateJobRequest, StartLiveSubtitlesRequest
+    query = '/api/import?filename=lesson.srt&processing_mode=transcript'
+    if profile:
+        query += f'&transcription_profile={profile}&transcription_device={device}'
+    result = project[-1].post(query, content=b'1\n00:00:01,000 --> 00:00:02,000\nExample\n')
+    assert result.status_code == 202
+    job = project[1].get_job(result.json()['id'])
+    assert job['transcription_profile'] == (profile or 'accurate')
+    assert job['transcription_device'] == (device or 'gpu')
+    options = {'transcription_profile':profile,'transcription_device':device} if profile else {}
+    link = CreateJobRequest(url='https://www.youtube.com/watch?v=BaW_jenozKc', **options)
+    assert link.transcription_profile == job['transcription_profile']
+    assert link.transcription_device == job['transcription_device']
+    assert StartLiveSubtitlesRequest().transcription_profile == 'balanced'
+
+
 def test_desktop_products_edit_regenerate_and_export(project, monkeypatch):
     from dataclasses import replace
     from videosummarizer.reading_products import SummarySection, MapSection

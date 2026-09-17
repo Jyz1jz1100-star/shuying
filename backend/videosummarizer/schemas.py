@@ -17,7 +17,7 @@ class StartLiveSubtitlesRequest(BaseModel):
 
 class CreateJobRequest(BaseModel):
     url: HttpUrl
-    transcription_profile: TranscriptionProfile = "balanced"
+    transcription_profile: TranscriptionProfile = "accurate"
     llm_provider: LLMProvider = "local"
     processing_mode: Literal['transcript', 'lecture'] = 'lecture'
     transcription_device: Literal['gpu', 'cpu'] = 'gpu'
