@@ -2,6 +2,8 @@
 
 [返回项目首页](../README.md)
 
+本指南描述当前源码版本。已发布的 Alpha.3 安装包尚不包含新版独立总结、可缩放导图及默认高精度设置；如果看到“讲义 / 结构导图”等旧名称，这是版本差异。源码功能进入新的安装包后，发布说明会注明。
+
 ## 第一次打开
 
 从[发布页](https://github.com/Jyz1jz1100-star/shuying/releases/tag/v2.0.0-alpha.3)下载 `Shuying-windows-x64.zip`，完整解压后运行 `VideoSummarizer.exe`。`Source code` 是开发用源码，不是可直接打开的应用。测试包尚未签名。

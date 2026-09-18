@@ -8,6 +8,8 @@ Keep something useful from a course, interview, podcast, or recording. Shuying l
 
 Free and open source · Locally stored · Windows x64 · Alpha
 
+**Version note:** the download above is still Alpha.3. Separate AI summaries, the zoomable mind-map canvas, and high-accuracy transcription by default are implemented in the current source but are not included in that archive. Alpha.3 uses older labels and a different outline view.
+
 ## What can you do with it?
 
 | When you want to… | Shuying helps you… |
@@ -21,7 +23,7 @@ Free and open source · Locally stored · Windows x64 · Alpha
 
 - **Read at your own pace.** Bring in local media, public video links, or existing subtitles.
 - **Check the original words.** References in AI notes lead to the corresponding transcript passages.
-- **See the structure first.** Switch existing notes to a collapsible topic map, select a node to find its source, or export a Markdown outline.
+- **See the structure first.** Keep the full transcript, read a concise AI summary, or explore a separately generated topic map. Pan, zoom, and collapse branches in the visual canvas; select referenced text to find its source, or export a Markdown outline.
 - **Keep your corrections.** Edit the transcript and update the affected notes; original text is retained.
 - **Take your work with you.** Export Word, Markdown, TXT, SRT, VTT, or JSON. Without AI notes, Word and Markdown contain the full transcript.
 - **Find your materials.** Search by title, filename, author, or URL, then filter by status and source.
@@ -31,7 +33,7 @@ Free and open source · Locally stored · Windows x64 · Alpha
 
 1. Download the Windows ZIP above, extract the entire folder, and open `VideoSummarizer.exe`. Keep the other files alongside it. No Python or Node.js installation is needed. This alpha is unsigned.
 2. Click **“先体验示例”** (try the example) to read, search, edit, and export without downloading a model.
-3. Import your subtitles, audio, video, or a supported public video link. Start with the transcript; configure a model only if you want AI notes (“讲义” in the app).
+3. Import your subtitles, audio, video, or a supported public video link. Start with the transcript; configure a model when you want a summary and mind map. In the current interface, choose “生成总结和导图”; existing transcripts do not need to be transcribed again.
 
 Audio transcription needs a speech recognition model, downloaded on first use. GPU and explicit CPU modes are available; CPU is usually slower. Existing subtitles skip this step. The current interface and generated notes primarily target Chinese-language use.
 

@@ -24,6 +24,7 @@ Choose an installed Ollama model or configure a Chat Completions compatible API 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 pnpm typecheck
+pnpm test:mindmap
 node --experimental-strip-types --test tests/taskLibrary.test.mjs
 pnpm build
 powershell -ExecutionPolicy Bypass -File .\build_windows.ps1
