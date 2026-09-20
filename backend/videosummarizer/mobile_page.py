@@ -46,7 +46,7 @@ async function api(path, options={}) {
   if(session!==generation) throw new Error("会话已结束。");
   if(!response.ok) {
     if(path==="/v1/jobs/link"&&response.status===400){let detail;try{detail=await response.json();}catch{}throw new Error(detail?.error?.message||"无法读取链接，请检查是否为支持的视频网址。");}
-    throw failure(response.status,response.headers.get("Retry-After"));
+    const error=failure(response.status,response.headers.get("Retry-After"));error.status=response.status;throw error;
   }
   return response;
 }
@@ -149,15 +149,23 @@ async function showJob(job){
   selected=job;$("detail").hidden=false;$("detail-title").textContent=job.title||"未命名材料";
   $("job-state").textContent=label(job)+(job.status==="failed"?"。可以重新处理；若仍失败，请联系服务管理者。":active(job)?"。进度会自动更新，你可以先做别的事。":"");
   $("cancel").hidden=!active(job);$("retry").hidden=!["failed","canceled"].includes(job.status);$("delete").hidden=active(job);
-  if(resultFor!==job.id){clearResults();$("result-actions").hidden=true;}
-  if(job.status==="completed"&&resultFor!==job.id){
-    const session=generation;const data=await(await api(`/v1/jobs/${job.id}/result`)).json();if(session!==generation||selected?.id!==job.id)return;
+  if(resultFor!==job.id||active(job)){clearResults();$("result-actions").hidden=true;resultFor="";}
+  if(!active(job)&&resultFor!==job.id){
+    const session=generation;let data;
+    try{data=await(await api(`/v1/jobs/${job.id}/result`)).json();}
+    catch(error){
+      if(session!==generation||selected?.id!==job.id||selected.status!==job.status)return;
+      if(error.status===409&&job.status!=="completed"){$("job-state").textContent+="。尚未生成可读取的文字，可以重新处理。";return;}
+      throw error;
+    }
+    if(session!==generation||selected?.id!==job.id||selected.status!==job.status)return;
     $("transcript").replaceChildren();const fragment=document.createDocumentFragment();
     renderNotes(data,job);
     for(const segment of data.segments){const item=document.createElement("div");item.className="segment";item.id="segment-"+segment.id;const time=document.createElement("time");time.textContent=timestamp(segment.start);const text=document.createElement("p");text.textContent=segment.text;item.append(time,text);fragment.append(item);}
     $("transcript").append(fragment);$("result-actions").hidden=false;$("views").hidden=false;resultFor=job.id;switchView(data.summary?.length?"summary":"original");
     $("notes").textContent=job.processing_mode==="lecture"?"重新生成总结和导图":"生成 AI 总结和导图";
   }
+  if(resultFor===job.id&&job.status!=="completed")$("job-state").textContent+=" 已保存的文字仍可阅读、导出；可继续生成总结和导图。";
 }
 $("refresh").onclick=()=>task($("refresh"),refresh);
 $("more").onclick=()=>task($("more"),async()=>{pageSize=Math.min(100,pageSize+20);await refresh();});

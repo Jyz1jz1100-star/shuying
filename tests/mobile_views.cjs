@@ -14,3 +14,29 @@ vm.runInContext('renderNotes({summary:[],mindmap:[],segments:[]},{})',ctx);
 assert.equal(destroyed,1);assert.equal(nodes.get('map-content').children.length,1);
 vm.runInContext('clearResults()',ctx);assert.equal(nodes.get('map-content').children.length,0);
 console.log('PASS: mobile mounts visible canvas once, navigates to transcript and clears old map');
+
+(async()=>{
+  const result={summary:[],mindmap:[],segments:[{id:'saved',start:0,text:'Saved transcript'}]};
+  const response=(status,data)=>({ok:status===200,status,headers:{get:()=>null},json:async()=>data});
+  for(const status of ['failed','canceled']){
+    ctx.fetch=async()=>response(200,result);
+    await vm.runInContext(`showJob({id:'${status}',status:'${status}',processing_mode:'lecture'})`,ctx);
+    assert.equal(nodes.get('result-actions').hidden,false);
+    assert.equal(nodes.get('views').hidden,false);
+    assert.equal(nodes.get('transcript').hidden,false);
+    assert.equal(nodes.get('retry').hidden,false);
+    assert.equal(nodes.get('transcript').children[0].children[0].children[1].textContent,'Saved transcript');
+  }
+  ctx.fetch=async()=>response(409,{});
+  await vm.runInContext("showJob({id:'no-result',status:'failed'})",ctx);
+  assert.equal(nodes.get('result-actions').hidden,true);
+  assert.equal(nodes.get('transcript').children.length,0);
+  ctx.fetch=async()=>response(500,{});
+  await assert.rejects(vm.runInContext("showJob({id:'broken-service',status:'failed'})",ctx),error=>error.status===500);
+  ctx.fetch=async()=>response(200,result);
+  await vm.runInContext("showJob({id:'resume',status:'canceled'})",ctx);
+  await vm.runInContext("showJob({id:'resume',status:'queued'})",ctx);
+  assert.equal(nodes.get('result-actions').hidden,true);
+  assert.equal(nodes.get('views').hidden,true);
+  console.log('PASS: retained results after failure/cancel, empty-result state, server errors and resumed jobs');
+})().catch(error=>{console.error(error);process.exitCode=1;});

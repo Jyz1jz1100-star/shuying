@@ -252,3 +252,17 @@ def test_gpu_default_and_explicit_cpu_for_both_inputs(service, monkeypatch):
             assert response.status_code == 202
             assert app.state.database.get_job(response.json()['id'])['transcription_device'] == (device or 'gpu')
             assert app.state.database.get_job(response.json()['id'])['transcription_profile'] == 'accurate'
+
+
+@pytest.mark.parametrize('status', ['failed', 'canceled'])
+def test_retained_transcript_available_after_later_stage_stops(service, status):
+    app, client, _ = service
+    job_id = upload(client)
+    app.state.pipeline.run(job_id)
+    app.state.database.update_job(job_id, status=status, processing_mode='lecture')
+    result = client.get(f'/v1/jobs/{job_id}/result', headers=headers())
+    assert result.status_code == 200
+    assert result.json()['segments'][0]['text'] == 'API example text'
+    exported = client.get(f'/v1/jobs/{job_id}/export?format=txt', headers=headers())
+    assert exported.status_code == 200 and 'API example text' in exported.text
+    assert client.get(f'/v1/jobs/{job_id}/result', headers=headers(OTHER)).status_code == 404
