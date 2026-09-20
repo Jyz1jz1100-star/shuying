@@ -1,14 +1,24 @@
 # Shuying 述影
 
-**Turn video and audio into text you can read, search, and keep.**
+**Turn video and recordings into readable transcripts, concise summaries, and visual mind maps.**
 
 Keep something useful from a course, interview, podcast, or recording. Shuying lets you transcribe speech, edit the text, and export it to your favorite tools. Optionally, turn the transcript into Chinese AI notes with links back to the source passages.
 
 **[Download for Windows](https://github.com/Jyz1jz1100-star/shuying/releases/download/v2.0.0-alpha.3/Shuying-windows-x64.zip)** · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Jyz1jz1100-star/shuying/issues) · [中文](README.md)
 
-Free and open source · Locally stored · Windows x64 · Alpha
+Free and open source · Windows x64 · Self-hostable · Alpha
 
 **Version note:** the download above is still Alpha.3. Separate AI summaries, the zoomable mind-map canvas, and high-accuracy transcription by default are implemented in the current source but are not included in that archive. Alpha.3 uses older labels and a different outline view.
+
+## One source, three ways to read
+
+| Result | What it provides |
+| --- | --- |
+| Full transcript | Complete timestamped text to search, edit, and check |
+| AI summary | A core conclusion and a few key points |
+| Mind map | Topic nodes and colored branches, with pan, zoom, folding, and an expanded canvas |
+
+Summaries and maps are generated separately from a shared transcript. Add them later without transcribing the media again. References return you to the source text.
 
 ## What can you do with it?
 
@@ -39,13 +49,17 @@ Audio transcription needs a speech recognition model, downloaded on first use. G
 
 ## A few things to know
 
-- **Privacy:** tasks and media copies stay on your machine. Local AI processing does not send content to an AI cloud service. Online AI mode sends the required text to your chosen provider, not the video or audio. Media and model downloads still use the network. Online providers may charge separately.
-- **Compatibility:** Windows x64 only. Media: up to two hours and 2GB per item. UTF-8 SRT / VTT: up to 10MB. Public link support depends on the source website; authenticated, paid or DRM content, livestreams, and playlists are not supported.
+- **Privacy:** desktop tasks and media copies stay on your machine; phone uploads are stored on the service computer. Local AI processing does not send content to an AI cloud service. Online AI mode sends the required text to your chosen provider, not the video or audio. Media and model downloads still use the network. Online providers may charge separately.
+- **Desktop compatibility:** Windows x64 only. Media: up to two hours and 2GB per item. UTF-8 SRT / VTT: up to 10MB. Public link support depends on the source website; authenticated, paid or DRM content, livestreams, and playlists are not supported.
 - **Scope:** Shuying works with speech and subtitles, not images, slides, or handwriting in the video. AI notes can be wrong; references help you check them.
 
 See the [user guide (中文)](docs/user-guide.md) for model setup, storage, and troubleshooting.
 
-For scripts, mobile apps and other computers, a separate HTTP API supports uploads, progress polling and document exports. See the [API guide](docs/api.md) and [deployment guide](docs/service.md) (中文). API deployment currently requires source installation; it is not included in the Alpha.3 desktop ZIP.
+## Use it on your phone
+
+Once an administrator deploys the service, open its HTTPS address in a mobile browser, enter your access key, and paste a Bilibili / YouTube link or upload a file. Processing runs on the service computer; the phone needs no model installation. The phone client shares the desktop summary and mind-map generation logic. Saved transcripts remain readable and exportable after a job fails or is canceled.
+
+The service computer must stay online, signed in, and awake. API limits are separate from desktop limits; check the phone page or ask the administrator. API deployment requires source installation and is not included in the Alpha.3 desktop ZIP. See [deployment](docs/service.md) and [API integration](docs/api.md) (中文) for other clients and applications.
 
 ## Help improve Shuying
 
